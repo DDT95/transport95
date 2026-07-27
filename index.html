@@ -1,10 +1,156 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000091"><title>Observatoire des transports · Val-d’Oise</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="modern.css"><link rel="stylesheet" href="interactions.css"><link rel="stylesheet" href="navigation.css"></head>
-<body><div class="app">
-<header class="topbar"><div class="republique"><img class="brand-logo" src="prefet-val-doise-logo.png" alt="Préfet du Val-d’Oise"></div><div class="titleblock"><div class="eyebrow">Mobilités · Val-d’Oise</div><h1>Observatoire des transports</h1><div class="subtitle">Offre · infrastructures · accessibilité · mobilités actives</div></div><div class="livebox"><span class="live-dot" id="live-dot"></span><div><div class="live-text" id="live-text">Données locales prêtes</div><div class="live-sub">IDFM · PAN · IGN</div></div></div></header><div class="progress"><span id="progress"></span></div>
-<main class="main"><aside class="panel"><div class="panel-head"><div class="tool-kicker">EXPLORER LE TERRITOIRE</div><div class="question">Comment se déplace-t-on&nbsp;?</div><p class="tool-intro">Recherche un lieu, une gare ou une ligne et analyse sa desserte.</p><form id="search-form" class="search"><span>⌕</span><input id="search-input" type="search" placeholder="Adresse, commune, gare…"><button>Rechercher</button></form><div class="line-search"><label for="line-filter">Filtrer une ligne</label><input id="line-filter" type="search" placeholder="Ex. H, J, 9501…"><small id="line-result">245 lignes IDFM dans le département</small></div><div class="actions"><button class="primary" id="home">Recentrer</button><button id="locate">Me localiser</button></div></div>
-<div class="scroll"><section class="layers"><div class="section-head"><div><h2>Afficher sur la carte</h2><p>Active seulement les informations utiles.</p></div><span id="source-state" class="ok">Local</span></div><label><i style="--c:#e1000f"></i><span><b>Gares et stations</b><small>GTFS Île-de-France Mobilités</small></span><input type="checkbox" data-layer="stations" checked></label><label><i style="--c:#000091"></i><span><b>Arrêts de bus</b><small>GTFS Île-de-France Mobilités</small></span><input type="checkbox" data-layer="stops" checked></label><label><i style="--c:#6f4c9b"></i><span><b>Voies ferrées</b><small>Géoplateforme · BD TOPO</small></span><input type="checkbox" data-layer="rail" checked></label><label><i style="--c:#f28e2b"></i><span><b>Réseau routier</b><small>Géoplateforme · BD TOPO</small></span><input type="checkbox" data-layer="roads"></label><label><i style="--c:#18753c"></i><span><b>Aménagements cyclables</b><small>Géoplateforme · Geovelo</small></span><input type="checkbox" data-layer="cycle"></label></section><section class="sources"><h2>Sources</h2><p>PAN transport · Île-de-France Mobilités · BD TOPO · Géoplateforme · Geovelo.</p></section></div></aside>
-<section class="map-zone" style="display:block"><div class="map-card" style="height:100%"><div id="map"></div><div class="map-help"><b>Clique sur la carte</b><span>pour analyser la desserte d’un lieu</span></div></div></section></main>
-<footer><span><b>Données embarquées</b> · fonctionnement local</span><span>DDT du Val-d’Oise · Leaflet 1.9.4</span></footer></div>
-<aside class="drawer" id="drawer"><button class="close" id="close" aria-label="Fermer">×</button><div class="drawer-head"><button class="back" id="back" type="button" hidden>← Retour</button><small id="detail-type">ACCESSIBILITÉ</small><h2 id="detail-title">Point sélectionné</h2><p id="detail-sub">Clique sur la carte</p></div><div class="drawer-body" id="detail-body"></div></aside>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="./mobility95.js"></script><script src="./app.js"></script></body></html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#000091" />
+    <title>Observatoire des transports · Val-d’Oise</title>
+    <link rel="icon" href="favicon.svg" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="modern.css" />
+    <link rel="stylesheet" href="interactions.css" />
+    <link rel="stylesheet" href="navigation.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="republique">
+          <img
+            class="brand-logo"
+            src="prefet-val-doise-logo.png"
+            alt="Préfet du Val-d’Oise"
+          />
+        </div>
+        <div class="titleblock">
+          <div class="eyebrow">Mobilités · Val-d’Oise</div>
+          <h1>Observatoire des transports</h1>
+          <div class="subtitle">
+            Offre · infrastructures · accessibilité · mobilités actives
+          </div>
+        </div>
+        <div class="livebox">
+          <span class="live-dot" id="live-dot"></span>
+          <div>
+            <div class="live-text" id="live-text">Données locales prêtes</div>
+            <div class="live-sub">IDFM · PAN · IGN</div>
+          </div>
+        </div>
+      </header>
+      <div class="progress"><span id="progress"></span></div>
+      <main class="main">
+        <aside class="panel">
+          <div class="panel-head">
+            <div class="tool-kicker">EXPLORER LE TERRITOIRE</div>
+            <div class="question">Comment se déplace-t-on&nbsp;?</div>
+            <p class="tool-intro">
+              Recherche un lieu, une gare ou une ligne et analyse sa desserte.
+            </p>
+            <form id="search-form" class="search">
+              <span>⌕</span
+              ><input
+                id="search-input"
+                type="search"
+                placeholder="Adresse, commune, gare…"
+              /><button>Rechercher</button>
+            </form>
+            <div class="line-search">
+              <label for="line-filter">Filtrer une ligne</label
+              ><input
+                id="line-filter"
+                type="search"
+                placeholder="Ex. H, J, 9501…"
+              /><small id="line-result"
+                >245 lignes IDFM dans le département</small
+              >
+            </div>
+            <div class="actions">
+              <button class="primary" id="home">Recentrer</button
+              ><button id="locate">Me localiser</button>
+            </div>
+          </div>
+          <div class="scroll">
+            <section class="layers">
+              <div class="section-head">
+                <div>
+                  <h2>Afficher sur la carte</h2>
+                  <p>Active seulement les informations utiles.</p>
+                </div>
+                <span id="source-state" class="ok">Local</span>
+              </div>
+              <label
+                ><i style="--c: #e1000f"></i
+                ><span
+                  ><b>Gares et stations</b
+                  ><small>GTFS Île-de-France Mobilités</small></span
+                ><input type="checkbox" data-layer="stations" checked /></label
+              ><label
+                ><i style="--c: #000091"></i
+                ><span
+                  ><b>Arrêts de bus</b
+                  ><small>GTFS Île-de-France Mobilités</small></span
+                ><input type="checkbox" data-layer="stops" checked /></label
+              ><label
+                ><i style="--c: #6f4c9b"></i
+                ><span
+                  ><b>Voies ferrées</b
+                  ><small>Géoplateforme · BD TOPO</small></span
+                ><input type="checkbox" data-layer="rail" checked /></label
+              ><label
+                ><i style="--c: #f28e2b"></i
+                ><span
+                  ><b>Réseau routier</b
+                  ><small>Géoplateforme · BD TOPO</small></span
+                ><input type="checkbox" data-layer="roads" /></label
+              ><label
+                ><i style="--c: #18753c"></i
+                ><span
+                  ><b>Aménagements cyclables</b
+                  ><small>Géoplateforme · Geovelo</small></span
+                ><input type="checkbox" data-layer="cycle"
+              /></label>
+            </section>
+            <section class="sources">
+              <h2>Sources</h2>
+              <p>
+                PAN transport · Île-de-France Mobilités · BD TOPO ·
+                Géoplateforme · Geovelo.
+              </p>
+            </section>
+          </div>
+        </aside>
+        <section class="map-zone" style="display: block">
+          <div class="map-card" style="height: 100%">
+            <div id="map"></div>
+            <div class="map-help">
+              <b>Clique sur la carte</b
+              ><span>pour analyser la desserte d’un lieu</span>
+            </div>
+          </div>
+        </section>
+      </main>
+      <footer>
+        <span><b>Données embarquées</b> · fonctionnement local</span
+        ><span>DDT du Val-d’Oise · Leaflet 1.9.4</span>
+      </footer>
+    </div>
+    <aside class="drawer" id="drawer">
+      <button class="close" id="close" aria-label="Fermer">×</button>
+      <div class="drawer-head">
+        <button class="back" id="back" type="button" hidden>← Retour</button
+        ><small id="detail-type">ACCESSIBILITÉ</small>
+        <h2 id="detail-title">Point sélectionné</h2>
+        <p id="detail-sub">Clique sur la carte</p>
+      </div>
+      <div class="drawer-body" id="detail-body"></div>
+    </aside>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="./mobility95.js"></script>
+    <script src="./roads95.js"></script>
+    <script src="./cycle95.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

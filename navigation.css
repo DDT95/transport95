@@ -1,1 +1,48 @@
-.back{display:inline-flex;align-items:center;border:0;background:transparent;color:#000091;font:700 12px Marianne,Arial;padding:0 0 14px;cursor:pointer}.back[hidden]{display:none}.drawer-head:has(.back:not([hidden])){padding-top:18px}
+.back {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  border: 0;
+  background: transparent;
+  color: #000091;
+  font:
+    700 12px Marianne,
+    Arial;
+  padding: 0;
+  margin: 0 0 18px;
+  cursor: pointer;
+}
+.back[hidden] {
+  display: none;
+}
+.drawer-head {
+  position: relative;
+}
+.drawer-head small {
+  display: block;
+  max-width: calc(100% - 52px);
+  line-height: 1.35;
+}
+.drawer-head h2 {
+  clear: both;
+}
+.drawer.line-detail .drawer-head {
+  border-top: 7px solid var(--active-line);
+}
+.drawer.line-detail #detail-title {
+  display: inline-grid;
+  place-items: center;
+  min-width: 72px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--active-line);
+  color: var(--active-line-text);
+  line-height: 1;
+}
+.drawer.line-detail[data-line-kind="rer"] #detail-title {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  padding: 0;
+  border-radius: 50%;
+}
