@@ -18,6 +18,8 @@ npm run build
 
 Le workflow GitHub Pages publie automatiquement la branche `main` sur `https://ddt95.github.io/transport95/`.
 
+La carte peut également être ouverte directement en double-cliquant sur `index.html`. Une connexion internet reste nécessaire pour Leaflet et les services de données.
+
 ## Sources
 
 - Point d’accès national aux données de transport (`transport.data.gouv.fr`) : catalogue national et accès aux ressources GTFS/NeTEx/SIRI.
