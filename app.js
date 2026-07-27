@@ -221,14 +221,46 @@ function nextPassages(h, id) {
   const next = all.filter((t) => t >= current).slice(0, 4);
   return (next.length ? next : all.slice(0, 4)).join(" · ");
 }
+function futureTimes(times, limit = 4) {
+  const now = new Date();
+  const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const next = times.filter((t) => t >= current).slice(0, limit);
+  return next.length ? next : times.slice(0, limit);
+}
+function directionsAtHub(h, id) {
+  const grouped = {};
+  h.stops.forEach((sid) => {
+    const stop = stopsById[sid];
+    Object.entries(stop?.directions?.[id] || {}).forEach(
+      ([destination, times]) => {
+        if (destination.toLowerCase() === h.name.toLowerCase()) return;
+        grouped[destination] = [
+          ...new Set([...(grouped[destination] || []), ...times]),
+        ].sort();
+      },
+    );
+  });
+  return grouped;
+}
+function directionLabel(id, destination) {
+  return routes[id]?.short === "A" && destination !== "Cergy le Haut"
+    ? `Paris · ${destination}`
+    : destination;
+}
 function hubCard(h) {
   return `<section class="summary"><h3>${h.n > 1 ? "Pôle de correspondance" : "Point d’arrêt"}</h3><p>${h.n} quai${h.n > 1 ? "s" : ""} regroupé${h.n > 1 ? "s" : ""} · ${h.routes.length} ligne${h.routes.length > 1 ? "s" : ""}</p><div class="route-list">${h.routes.map(routeChip).join("")}</div></section><section class="summary"><h3>Services aujourd’hui</h3>${h.routes
     .slice(0, 8)
     .map((id) => {
       const r = routes[id],
         t = hubTimes(h, id);
+      const directional = Object.entries(directionsAtHub(h, id))
+        .map(
+          ([destination, times]) =>
+            `<small class="direction-time"><b>Vers ${esc(directionLabel(id, destination))}</b> ${futureTimes(times).join(" · ")}</small>`,
+        )
+        .join("");
       const upcoming = nextPassages(h, id);
-      return `<div class="service-row"><span class="mini-line" style="--line:#${r?.color || "000091"};--line-text:#${r?.text || "FFFFFF"}">${esc(r?.short)}</span><span>${esc((r?.destinations || []).join(" · ") || r?.long)}</span><small>${upcoming ? `Prochains passages théoriques : ${upcoming}` : "horaires à confirmer"}${t ? ` · service ${t.first}–${t.last}` : ""}</small></div>`;
+      return `<div class="service-row"><span class="mini-line" style="--line:#${r?.color || "000091"};--line-text:#${r?.text || "FFFFFF"}">${esc(r?.short)}</span><span>${esc((r?.destinations || []).join(" · ") || r?.long)}</span>${directional || `<small>${upcoming ? `Prochains passages théoriques : ${upcoming}` : "horaires à confirmer"}</small>`}${t ? `<small>Service théorique ${t.first}–${t.last}</small>` : ""}</div>`;
     })
     .join("")}</section>${isoBlock()}`;
 }
@@ -259,7 +291,21 @@ D.hubs.forEach((h) => {
 function lineCard(id) {
   const r = routes[id],
     dest = (r.destinations || []).join(" ↔ ") || r.long;
-  return `<section class="summary"><h3>Direction</h3><p>${esc(dest)}</p></section><section class="summary"><h3>Desserte dans le Val-d’Oise</h3><p>${r.stops.length} arrêts sur le tracé sélectionné. Clique sur un arrêt pour le localiser.</p><div class="stop-sequence">${r.stops.map((s, i) => `<button onclick='focusStop(${JSON.stringify(s.id)})'><i></i><span><small>${String(i + 1).padStart(2, "0")}</small>${esc(s.name)}</span><b>›</b></button>`).join("")}</div></section><section class="summary"><h3>Données de service</h3><p>Horaires théoriques GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}. Ouvre un arrêt pour voir les premiers, derniers passages et le nombre de courses.</p></section>`;
+  const schedules = r.stops
+    .map((s) => {
+      const stop = stopsById[s.id];
+      const directions = Object.entries(stop?.directions?.[id] || {}).filter(
+        ([destination]) => destination.toLowerCase() !== s.name.toLowerCase(),
+      );
+      return `<div class="station-schedule"><button onclick='focusStop(${JSON.stringify(s.id)})'><b>${esc(s.name)}</b><span>Voir sur la carte ›</span></button>${directions.map(([destination, times]) => `<p><b>Vers ${esc(directionLabel(id, destination))}</b><span>${futureTimes(times).join(" · ") || "Service terminé"}</span></p>`).join("")}</div>`;
+    })
+    .join("");
+  return `<section class="summary"><h3>Terminus et directions</h3><p>${esc(dest)}</p></section><section class="summary"><h3>Prochains départs</h3><p>Horaires théoriques GTFS dans les deux sens.</p><div class="line-schedules">${schedules}</div></section><section class="summary"><h3>Desserte dans le Val-d’Oise</h3><p>${r.stops.length} arrêts sur le tracé sélectionné.</p><div class="stop-sequence">${r.stops.map((s, i) => `<button onclick='focusStop(${JSON.stringify(s.id)})'><i></i><span><small>${String(i + 1).padStart(2, "0")}</small>${esc(s.name)}</span><b>›</b></button>`).join("")}</div></section><section class="summary"><h3>Données de service</h3><p>Horaires théoriques GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}.</p></section>`;
+}
+function routeSubtitle(r) {
+  return r.long && r.long !== r.short
+    ? r.long
+    : (r.destinations || []).join(" ↔ ");
 }
 function focusStop(stopId) {
   const marker = hubMarkers.find((m) => m.hubData.stops.includes(stopId));
@@ -288,15 +334,21 @@ function selectRoute(id) {
       );
     layers.route.on("click", (e) => {
       L.DomEvent.stopPropagation(e);
-      openDetail(r.short || r.long, "LIGNE IDFM", r.long, lineCard(id), {
-        color: `#${r.color}`,
-        textColor: `#${r.text || "FFFFFF"}`,
-        kind: ["A", "B", "C", "D", "E"].includes(r.short)
-          ? "rer"
-          : [0, 1, 2, 7].includes(Number(r.type))
-            ? "rail"
-            : "bus",
-      });
+      openDetail(
+        r.short || r.long,
+        "LIGNE IDFM",
+        routeSubtitle(r),
+        lineCard(id),
+        {
+          color: `#${r.color}`,
+          textColor: `#${r.text || "FFFFFF"}`,
+          kind: ["A", "B", "C", "D", "E"].includes(r.short)
+            ? "rer"
+            : [0, 1, 2, 7].includes(Number(r.type))
+              ? "rail"
+              : "bus",
+        },
+      );
     });
     map.fitBounds(layers.route.getBounds(), { padding: [40, 40] });
   }
@@ -310,7 +362,7 @@ function selectRoute(id) {
       if (!g.hasLayer(m)) g.addLayer(m);
     } else if (g.hasLayer(m)) g.removeLayer(m);
   });
-  openDetail(r.short || r.long, "LIGNE IDFM", r.long, lineCard(id), {
+  openDetail(r.short || r.long, "LIGNE IDFM", routeSubtitle(r), lineCard(id), {
     color: `#${r.color}`,
     textColor: `#${r.text || "FFFFFF"}`,
     kind: ["A", "B", "C", "D", "E"].includes(r.short)

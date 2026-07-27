@@ -117,3 +117,55 @@
 .drawer {
   width: min(520px, calc(100vw - 32px));
 }
+.direction-time {
+  grid-column: 2;
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+.direction-time b {
+  color: #17174a;
+}
+.line-schedules {
+  display: flex;
+  flex-direction: column;
+}
+.station-schedule {
+  padding: 10px 0;
+  border-top: 1px solid #e6e9f0;
+}
+.station-schedule:first-child {
+  border-top: 0;
+}
+.station-schedule > button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 2px 0 7px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: #11113f;
+  cursor: pointer;
+}
+.station-schedule > button span {
+  font-size: 10px;
+  color: #000091;
+}
+.station-schedule p {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  gap: 12px;
+  margin: 5px 0;
+  font-size: 11px;
+}
+.station-schedule p b {
+  color: #33335f;
+}
+.station-schedule p span {
+  font-variant-numeric: tabular-nums;
+  color: #000091;
+  font-weight: 700;
+  text-align: right;
+}
