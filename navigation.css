@@ -1,0 +1,1 @@
+.back{display:inline-flex;align-items:center;border:0;background:transparent;color:#000091;font:700 12px Marianne,Arial;padding:0 0 14px;cursor:pointer}.back[hidden]{display:none}.drawer-head:has(.back:not([hidden])){padding-top:18px}
