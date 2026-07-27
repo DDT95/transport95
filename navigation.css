@@ -18,6 +18,17 @@
 .drawer-head {
   position: relative;
 }
+.drawer .close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: #ececef;
+  color: #111;
+  cursor: pointer;
+}
 .drawer-head small {
   display: block;
   max-width: calc(100% - 52px);
