@@ -267,19 +267,20 @@ function hubIcon(h, color) {
   const rail = isRail(h),
     zoom = map.getZoom(),
     compact = zoom < 13,
+    marker = color || (rail ? "#e1000f" : "#000091"),
     size = rail
       ? compact
         ? 12
-        : 22
+        : 20
       : compact
         ? 9
-        : Math.min(18, 13 + Math.log2(h.n + 1)),
-    icon = rail ? "rer-train" : "bus";
+        : Math.min(17, 13 + Math.log2(h.n + 1)),
+    icon = rail ? "rer-train-map" : "bus-map";
   return L.divIcon({
     className: `hub-icon hub-icon-marker ${compact ? "compact" : "pictogram"}`,
     html: compact
-      ? `<span class="mobility-dot ${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"></span>`
-      : `<span class="${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"><img src="./icons/idfm/${icon}.jpg" alt=""></span>`,
+      ? `<span class="mobility-dot ${rail ? "rail" : "bus"}" style="--marker:${marker};width:${size}px;height:${size}px"></span>`
+      : `<span class="${rail ? "rail" : "bus"}" style="--marker:${marker};width:${size}px;height:${size}px"><img src="./icons/idfm/${icon}.jpg" alt=""></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });

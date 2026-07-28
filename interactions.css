@@ -189,7 +189,7 @@
 }
 .hub-icon-marker.pictogram span {
   overflow: hidden;
-  border-color: #fff;
+  border-color: var(--marker);
   background: #fff;
 }
 .hub-icon-marker:hover span {
@@ -203,9 +203,10 @@
   border-radius: 50%;
 }
 .hub-icon-marker img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  object-fit: contain;
 }
 .layer-picto {
   width: 17px;
