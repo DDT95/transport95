@@ -200,9 +200,39 @@
   }
 
   async function downloadTerritorialPdf() {
-    const doc = buildTerritorialPdf();
-    if (!doc) return;
-    doc.save(`synthese-transport-${safeFile(currentDetail.title)}.pdf`);
+    const button = document.querySelector("#export-pdf");
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = "<span aria-hidden=\"true\">…</span> Création du PDF";
+    try {
+      const doc = buildTerritorialPdf();
+      if (!doc) throw new Error("Générateur PDF indisponible");
+      const filename = `synthese-transport-${safeFile(currentDetail.title)}.pdf`;
+      const blobUrl = URL.createObjectURL(doc.output("blob"));
+      const previous = document.querySelector("#pdf-ready-link");
+      if (previous?.dataset.url) URL.revokeObjectURL(previous.dataset.url);
+      previous?.remove();
+      const link = document.createElement("a");
+      link.id = "pdf-ready-link";
+      link.className = "pdf-ready-link";
+      link.href = blobUrl;
+      link.download = filename;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.dataset.url = blobUrl;
+      link.textContent = "PDF prêt · ouvrir ou télécharger";
+      button.insertAdjacentElement("afterend", link);
+      link.click();
+      button.innerHTML = "<span aria-hidden=\"true\">✓</span> PDF généré";
+    } catch (error) {
+      console.error("Échec de l’export PDF", error);
+      button.innerHTML = "<span aria-hidden=\"true\">!</span> Réessayer l’export PDF";
+    } finally {
+      button.disabled = false;
+      window.setTimeout(() => {
+        if (button.textContent.includes("PDF généré")) button.innerHTML = original;
+      }, 3500);
+    }
   }
 
   window.buildTerritorialPdf = buildTerritorialPdf;

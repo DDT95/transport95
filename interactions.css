@@ -34,6 +34,19 @@
   font-size: 17px;
   line-height: 1;
 }
+.export-pdf:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+.pdf-ready-link {
+  display: block;
+  margin-top: 8px;
+  color: #000091;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .republique {
   width: 114px;
   height: 84px;
