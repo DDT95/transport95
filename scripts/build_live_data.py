@@ -4,6 +4,7 @@
 import json
 import os
 import re
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -16,8 +17,16 @@ SALES_API = "https://data.iledefrance-mobilites.fr/api/explore/v2.1/catalog/data
 
 def fetch(url):
     request = urllib.request.Request(url, headers={"User-Agent": "DDT95-transport-observatory/1.0"})
-    with urllib.request.urlopen(request, timeout=45) as response:
-        return response.read()
+    error = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                return response.read()
+        except Exception as exc:
+            error = exc
+            if attempt < 3:
+                time.sleep(1.5 * (attempt + 1))
+    raise error
 
 
 def text(node, path, default=""):
