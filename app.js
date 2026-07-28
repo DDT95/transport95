@@ -17,25 +17,27 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
 }).addTo(map);
 function roadColor(p) {
-  const n = p.numero || "";
-  return n.startsWith("A")
-    ? "#0053b3"
-    : n.startsWith("N")
-      ? "#e1000f"
-      : n.startsWith("D")
-        ? "#e8a000"
-        : "#aab4c3";
+  // Sémiologie routière inspirée de la carte IGN : la fonction du tronçon
+  // (importance BD TOPO) prime sur la seule lettre de son numéro.
+  return {
+    1: "#e32322",
+    2: "#f07c24",
+    3: "#e6ad18",
+    4: "#c7a45a",
+    5: "#aeb7c4",
+  }[Number(p.importance) || 5];
 }
 function roadStyle(feature) {
   const p = feature.properties || {},
-    number = p.numero || "",
-    motorway = number.startsWith("A"),
-    national = number.startsWith("N"),
-    departmental = number.startsWith("D");
+    importance = Number(p.importance) || 5,
+    widths = { 1: 6.2, 2: 4.4, 3: 2.6, 4: 1.4, 5: 0.8 },
+    opacities = { 1: 1, 2: 0.96, 3: 0.82, 4: 0.42, 5: 0.16 };
   return {
     color: roadColor(p),
-    weight: motorway ? 5.5 : national ? 4.2 : departmental ? 2.1 : 0.8,
-    opacity: motorway ? 1 : national ? 0.95 : departmental ? 0.7 : 0.16,
+    weight: widths[importance] || widths[5],
+    opacity: opacities[importance] || opacities[5],
+    lineCap: "round",
+    lineJoin: "round",
   };
 }
 function cycleColor(p) {
@@ -362,16 +364,28 @@ function roadFeature(f, layer) {
   const p = f.properties;
   const name =
     [p.numero, p.toponyme].filter(Boolean).join(" · ") ||
-    p.type_de_route ||
+    p.nature ||
     "Route";
-  layer.bindTooltip(name, { sticky: true });
+  const hierarchy = {
+    1: "axe majeur national ou européen",
+    2: "axe structurant interdépartemental",
+    3: "liaison structurante départementale",
+    4: "liaison locale",
+    5: "desserte locale",
+  }[Number(p.importance)] || "hiérarchie non renseignée";
+  layer.bindTooltip(
+    `<div class="tooltip-card"><b>${safeText(name)}</b><span><i>Réseau routier</i>Importance ${safeText(p.importance)} · ${safeText(hierarchy)}</span></div>`,
+    { sticky: true, className: "mobility-tooltip", opacity: 1 },
+  );
+  layer.on("mouseover", () => layer.setStyle({ weight: roadStyle(f).weight + 2, opacity: 1 }));
+  layer.on("mouseout", () => layer.setStyle(roadStyle(f)));
   layer.on("click", (e) => {
     L.DomEvent.stopPropagation(e);
     openDetail(
       p.numero || p.toponyme || "Route",
       "RÉSEAU ROUTIER",
-      p.type_de_route || "BD TOPO",
-      `<section class="summary"><h3>Identification</h3><p><b>${esc(name)}</b><br>${esc(p.type_de_route || "Type non renseigné")}</p></section><section class="summary"><h3>Gestion</h3><p>Gestionnaire : <b>${esc(p.gestionnaire || "non renseigné")}</b><br>Source : ${esc(p.sources || "BD TOPO · IGN")}<br>Mise à jour : ${esc((p.date_modification || "").slice(0, 10) || "non renseignée")}</p></section><section class="summary"><h3>Circulation</h3><p>La vitesse en temps réel n’est pas publiée sur ce tronçon. Aucun niveau de trafic n’est inventé.</p><a href="https://www.sytadin.fr/" target="_blank" rel="noopener">Consulter Sytadin ↗</a></section>`,
+      p.classement || p.nature || "BD TOPO",
+      `<section class="summary"><h3>Identification</h3><p><b>${esc(name)}</b><br>${esc(p.nature || "Nature non renseignée")} · ${esc(p.classement || "classement non renseigné")}</p></section><section class="summary"><h3>Hiérarchie du réseau</h3><p><b>Importance BD TOPO ${esc(p.importance || "—")}</b><br>${esc(hierarchy)}<br>${p.nombre_de_voies ? `${esc(p.nombre_de_voies)} voie(s)` : "Nombre de voies non renseigné"}${p.vitesse_moyenne ? ` · vitesse moyenne modélisée ${esc(p.vitesse_moyenne)} km/h` : ""}</p></section><section class="summary"><h3>Gestion</h3><p>Gestionnaire : <b>${esc(p.gestionnaire || "non renseigné")}</b><br>Source : BD TOPO · IGN<br>Mise à jour : ${esc((p.date_modification || "").slice(0, 10) || "non renseignée")}</p></section><section class="summary"><h3>Circulation</h3><p>La vitesse en temps réel n’est pas publiée sur ce tronçon. Aucun niveau de trafic n’est inventé.</p><a href="https://www.sytadin.fr/" target="_blank" rel="noopener">Consulter Sytadin ↗</a></section>`,
     );
   });
 }
