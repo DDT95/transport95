@@ -45,6 +45,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     stops: L.layerGroup(),
     selectedStops: L.layerGroup(),
     busRoutes: L.layerGroup(),
+    railRoutes: L.layerGroup(),
     sales: L.layerGroup(),
     traffic: L.geoJSON(
       LIVE.traffic?.features || { type: "FeatureCollection", features: [] },
@@ -112,14 +113,15 @@ let currentDetail = null,
   activeRouteId = null;
 
 function styleBusRouteLayers(selectedId = null) {
-  layers.busRoutes.eachLayer((line) => {
-    const selected = selectedId && line.routeId === selectedId;
+  [layers.busRoutes, layers.railRoutes].forEach((group) => group.eachLayer((line) => {
+    const selected = selectedId && line.routeId === selectedId,
+      rail = isRailRoute(line.routeId);
     line.setStyle({
-      weight: selected ? 4 : selectedId ? 1.2 : 2.4,
-      opacity: selected ? 0.95 : selectedId ? 0.12 : 0.68,
+      weight: selected ? 5 : selectedId ? 1.2 : rail ? 3.4 : 2.4,
+      opacity: selected ? 1 : selectedId ? 0.12 : rail ? 0.9 : 0.68,
     });
     if (selected) line.bringToFront();
-  });
+  }));
 }
 function renderDetail(v) {
   currentDetail = v;
@@ -797,29 +799,31 @@ function selectRoute(id) {
 }
 window.selectRoute = selectRoute;
 Object.entries(routes).forEach(([id, r]) => {
-  if (isRailRoute(id) || !r.geometry?.length) return;
+  if (!r.geometry?.length) return;
+  const railRoute = isRailRoute(id),
+    targetLayer = railRoute ? layers.railRoutes : layers.busRoutes;
   const line = L.polyline(r.geometry, {
     color: `#${r.color}`,
-    weight: 2.4,
-    opacity: 0.68,
+    weight: railRoute ? 3.4 : 2.4,
+    opacity: railRoute ? 0.9 : 0.68,
   });
   line.routeId = id;
   line.bindTooltip(
-    `<div class="tooltip-card route"><b>Bus ${esc(r.short || r.long)}</b><span>${esc((r.destinations || []).slice(0, 2).join(" ↔ ") || r.long)}</span></div>`,
+    `<div class="tooltip-card route"><b>${railRoute ? "RER · Train" : "Bus"} ${esc(r.short || r.long)}</b><span>${esc((r.destinations || []).slice(0, 2).join(" ↔ ") || r.long)}</span></div>`,
     { sticky: true, className: "mobility-tooltip", opacity: 1 },
   );
   line.on("mouseover", () => line.setStyle({ weight: 5, opacity: 1 }));
   line.on("mouseout", () =>
     line.setStyle({
-      weight: activeRouteId === id ? 4 : activeRouteId ? 1.2 : 2.4,
-      opacity: activeRouteId === id ? 0.95 : activeRouteId ? 0.12 : 0.68,
+      weight: activeRouteId === id ? 5 : activeRouteId ? 1.2 : railRoute ? 3.4 : 2.4,
+      opacity: activeRouteId === id ? 1 : activeRouteId ? 0.12 : railRoute ? 0.9 : 0.68,
     }),
   );
   line.on("click", (e) => {
     L.DomEvent.stopPropagation(e);
     selectRoute(id);
   });
-  line.addTo(layers.busRoutes);
+  line.addTo(targetLayer);
 });
 let lineSearchTimer;
 document.querySelector("#line-filter").oninput = (e) => {

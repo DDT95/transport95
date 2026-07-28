@@ -213,12 +213,16 @@
   async function downloadTerritorialPdf() {
     const button = document.querySelector("#export-pdf");
     const original = button.innerHTML;
+    const pdfWindow = window.open("", "_blank");
+    if (pdfWindow) {
+      pdfWindow.document.title = "Préparation de la synthèse PDF";
+      pdfWindow.document.body.innerHTML = '<p style="font:16px Arial;padding:32px;color:#070047">Création de la synthèse PDF…</p>';
+    }
     button.disabled = true;
     button.innerHTML = "<span aria-hidden=\"true\">…</span> Création du PDF";
     try {
       const doc = buildTerritorialPdf();
       if (!doc) throw new Error("Générateur PDF indisponible");
-      const filename = `synthese-transport-${safeFile(currentDetail.title)}.pdf`;
       const blobUrl = URL.createObjectURL(doc.output("blob"));
       const previous = document.querySelector("#pdf-ready-link");
       if (previous?.dataset.url) URL.revokeObjectURL(previous.dataset.url);
@@ -227,15 +231,16 @@
       link.id = "pdf-ready-link";
       link.className = "pdf-ready-link";
       link.href = blobUrl;
-      link.download = filename;
       link.target = "_blank";
       link.rel = "noopener";
       link.dataset.url = blobUrl;
-      link.textContent = "PDF prêt · ouvrir ou télécharger";
+      link.textContent = "PDF prêt · ouvrir dans un nouvel onglet";
       button.insertAdjacentElement("afterend", link);
-      link.click();
+      if (pdfWindow) pdfWindow.location.replace(blobUrl);
+      else link.click();
       button.innerHTML = "<span aria-hidden=\"true\">✓</span> PDF généré";
     } catch (error) {
+      pdfWindow?.close();
       console.error("Échec de l’export PDF", error);
       button.innerHTML = "<span aria-hidden=\"true\">!</span> Réessayer l’export PDF";
     } finally {
