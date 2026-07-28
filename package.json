@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp app.js mobility95.js roads95.js cycle95.js dist/",
+    "build": "vite build && cp app.js mobility95.js roads95.js cycle95.js dist/ && cp -R icons dist/",
     "preview": "vite preview"
   },
   "dependencies": {

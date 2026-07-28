@@ -36,6 +36,8 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
   layers = {
     stations: L.layerGroup(),
     stops: L.layerGroup(),
+    selectedStops: L.layerGroup(),
+    busRoutes: L.layerGroup(),
     rail: L.tileLayer(wmts("TRANSPORTNETWORKS.RAILWAYS"), {
       opacity: 0.7,
       zIndex: 340,
@@ -71,9 +73,6 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     access: null,
     iso: null,
   };
-layers.stations.addTo(map);
-layers.rail.addTo(map);
-document.querySelector('[data-layer="stops"]').checked = false;
 const drawer = document.querySelector("#drawer"),
   body = document.querySelector("#detail-body"),
   backBtn = document.querySelector("#back"),
@@ -159,10 +158,11 @@ backBtn.onclick = () => {
   map.setView(v.center, v.zoom, { animate: true });
 };
 function resetNavigation() {
-  ["route", "access", "iso"].forEach((k) => {
+  ["route", "access", "iso", "selectedStops"].forEach((k) => {
     if (layers[k]) {
       map.removeLayer(layers[k]);
-      layers[k] = null;
+      if (k === "selectedStops") layers[k] = L.layerGroup();
+      else layers[k] = null;
     }
   });
   detailHistory = [];
@@ -170,14 +170,16 @@ function resetNavigation() {
   document.querySelector("#line-filter").value = "";
   document.querySelector("#line-result").textContent =
     `${Object.keys(routes).length} lignes IDFM dans le département`;
-  if (!map.hasLayer(layers.stations)) layers.stations.addTo(map);
-  if (map.hasLayer(layers.stops)) map.removeLayer(layers.stops);
-  document.querySelector('[data-layer="stations"]').checked = true;
-  document.querySelector('[data-layer="stops"]').checked = false;
   hubMarkers.forEach((m) => {
     m.setIcon(hubIcon(m.hubData));
     const g = isRail(m.hubData) ? layers.stations : layers.stops;
     if (!g.hasLayer(m)) g.addLayer(m);
+  });
+  ["stations", "stops"].forEach((key) => {
+    const checked = document.querySelector(`[data-layer="${key}"]`).checked;
+    if (key === "stops" && checked) refreshBusStops();
+    if (checked && !map.hasLayer(layers[key])) layers[key].addTo(map);
+    if (!checked && map.hasLayer(layers[key])) map.removeLayer(layers[key]);
   });
 }
 document.querySelector("#close").onclick = () => {
@@ -185,14 +187,18 @@ document.querySelector("#close").onclick = () => {
   resetNavigation();
 };
 function isRail(h) {
-  return h.routes.some((id) => [0, 1, 2, 7].includes(Number(routes[id]?.type)));
+  return h.routes.some(isRailRoute);
+}
+function isRailRoute(id) {
+  return [0, 1, 2, 7].includes(Number(routes[id]?.type));
 }
 function hubIcon(h, color) {
   const rail = isRail(h),
-    size = rail ? 12 : Math.min(10, 5 + Math.log2(h.n + 1));
+    size = rail ? 34 : Math.min(24, 16 + Math.log2(h.n + 1) * 2),
+    icon = rail ? "train-front" : "bus-front";
   return L.divIcon({
-    className: "hub-icon",
-    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${color || (rail ? "#e1000f" : "#000091")};border:2px solid #fff;box-shadow:0 1px 6px #0007"></span>`,
+    className: "hub-icon hub-icon-marker",
+    html: `<span class="${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"><img src="./icons/${icon}.svg" alt=""></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -207,6 +213,48 @@ function routeChip(id) {
       ? "rail"
       : "bus";
   return `<button class="route-chip ${kind}" title="Ligne ${esc(short)}" onclick='selectRoute(${JSON.stringify(id)})' style="--line:#${r.color};--line-text:#${r.text || "FFFFFF"}">${esc(short)}</button>`;
+}
+function uniqueRoutes(ids) {
+  const seen = new Set();
+  return ids
+    .filter((id) => {
+      const key = routes[id]?.short || routes[id]?.long || id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) =>
+      (routes[a]?.short || "").localeCompare(routes[b]?.short || "", "fr", {
+        numeric: true,
+      }),
+    );
+}
+function routeGroups(h) {
+  const groups = { rail: [], urban: [], intercity: [], night: [] };
+  uniqueRoutes(h.routes).forEach((id) => {
+    const short = routes[id]?.short || "";
+    if (isRailRoute(id)) groups.rail.push(id);
+    else if (/^N/i.test(short)) groups.night.push(id);
+    else if (/^95[- ]?\d/i.test(short)) groups.intercity.push(id);
+    else groups.urban.push(id);
+  });
+  return groups;
+}
+function hubSubtitle(h) {
+  const groups = routeGroups(h),
+    count = Object.values(groups).reduce((sum, ids) => sum + ids.length, 0),
+    modes = Object.values(groups).filter((ids) => ids.length).length;
+  return `${count} ligne${count > 1 ? "s" : ""} · ${modes} mode${modes > 1 ? "s" : ""} · ${h.n} quai${h.n > 1 ? "s" : ""}`;
+}
+const groupMeta = {
+  rail: ["RER & trains", "Correspondances ferroviaires"],
+  urban: ["Bus urbains", "Desserte locale"],
+  intercity: ["Bus interurbains", "Liaisons départementales et express"],
+  night: ["Bus de nuit", "Noctilien"],
+};
+function routeGroupBlock(key, ids) {
+  if (!ids.length) return "";
+  return `<div class="mode-group ${key}"><div class="mode-group-title"><div><b>${groupMeta[key][0]}</b><small>${groupMeta[key][1]}</small></div><span>${ids.length}</span></div><div class="route-list">${ids.map(routeChip).join("")}</div></div>`;
 }
 function hubTimes(h, id) {
   const times = h.stops.flatMap((s) => stopsById[s]?.times?.[id] || []).sort();
@@ -225,7 +273,7 @@ function futureTimes(times, limit = 4) {
   const now = new Date();
   const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const next = times.filter((t) => t >= current).slice(0, limit);
-  return next.length ? next : times.slice(0, limit);
+  return next;
 }
 function directionsAtHub(h, id) {
   const grouped = {};
@@ -247,33 +295,68 @@ function directionLabel(id, destination) {
     ? `Paris · ${destination}`
     : destination;
 }
-function hubCard(h) {
-  return `<section class="summary"><h3>${h.n > 1 ? "Pôle de correspondance" : "Point d’arrêt"}</h3><p>${h.n} quai${h.n > 1 ? "s" : ""} regroupé${h.n > 1 ? "s" : ""} · ${h.routes.length} ligne${h.routes.length > 1 ? "s" : ""}</p><div class="route-list">${h.routes.map(routeChip).join("")}</div></section><section class="summary"><h3>Services aujourd’hui</h3>${h.routes
-    .slice(0, 8)
-    .map((id) => {
-      const r = routes[id],
-        t = hubTimes(h, id);
-      const directional = Object.entries(directionsAtHub(h, id))
-        .map(
-          ([destination, times]) =>
-            `<small class="direction-time"><b>Vers ${esc(directionLabel(id, destination))}</b> ${futureTimes(times).join(" · ")}</small>`,
-        )
-        .join("");
-      const upcoming = nextPassages(h, id);
-      return `<div class="service-row"><span class="mini-line" style="--line:#${r?.color || "000091"};--line-text:#${r?.text || "FFFFFF"}">${esc(r?.short)}</span><span>${esc((r?.destinations || []).join(" · ") || r?.long)}</span>${directional || `<small>${upcoming ? `Prochains passages théoriques : ${upcoming}` : "horaires à confirmer"}</small>`}${t ? `<small>Service théorique ${t.first}–${t.last}</small>` : ""}</div>`;
+function nextMinute(h, id) {
+  const times = h.stops.flatMap((sid) => stopsById[sid]?.times?.[id] || []);
+  const now = new Date(),
+    current = now.getHours() * 60 + now.getMinutes();
+  const values = times
+    .map((t) => {
+      const [hour, minute] = t.split(":").map(Number);
+      return hour * 60 + minute;
     })
+    .filter((v) => v >= current);
+  return values.length ? Math.min(...values) : 9999;
+}
+function serviceLine(h, id) {
+  const r = routes[id],
+    t = hubTimes(h, id);
+  const directional = Object.entries(directionsAtHub(h, id))
+    .map(
+      ([destination, times]) =>
+        `<div class="departure-direction"><span>Vers ${esc(directionLabel(id, destination))}</span><b>${futureTimes(times).join(" · ") || "Terminé"}</b></div>`,
+    )
+    .join("");
+  return `<article class="departure-card"><div class="departure-main">${routeChip(id)}<div><strong>${esc(r?.long && r.long !== r.short ? r.long : (r?.destinations || []).join(" · "))}</strong>${directional || `<div class="departure-direction"><span>Prochains passages</span><b>${nextPassages(h, id) || "À confirmer"}</b></div>`}</div></div>${t ? `<footer>Service théorique · ${t.first}–${t.last}</footer>` : ""}</article>`;
+}
+function scheduleGroup(h, key, ids) {
+  if (!ids.length) return "";
+  const sorted = [...ids].sort((a, b) => nextMinute(h, a) - nextMinute(h, b));
+  return `<details class="schedule-group" ${key === "rail" ? "open" : ""}><summary><span>${groupMeta[key][0]}</span><b>${ids.length} ligne${ids.length > 1 ? "s" : ""}</b><i>⌄</i></summary><div>${sorted.map((id) => serviceLine(h, id)).join("")}</div></details>`;
+}
+function hubCard(h) {
+  const groups = routeGroups(h),
+    total = Object.values(groups).reduce((sum, ids) => sum + ids.length, 0);
+  return `<section class="summary network-summary"><div class="summary-title"><div><h3>Correspondances</h3><p>${h.n} quai${h.n > 1 ? "s" : ""} · ${total} ligne${total > 1 ? "s" : ""}</p></div><span class="mode-count">${Object.values(groups).filter((ids) => ids.length).length} modes</span></div>${Object.entries(
+    groups,
+  )
+    .map(([key, ids]) => routeGroupBlock(key, ids))
+    .join(
+      "",
+    )}</section><section class="summary departures"><div class="summary-title"><div><h3>Prochains départs</h3><p>Triés par mode puis par heure de passage.</p></div><span class="theoretical">GTFS</span></div>${Object.entries(
+    groups,
+  )
+    .map(([key, ids]) => scheduleGroup(h, key, ids))
     .join("")}</section>${isoBlock()}`;
 }
 const hubMarkers = [];
 D.hubs.forEach((h) => {
   const m = L.marker([h.lat, h.lon], { icon: hubIcon(h) });
   m.hubData = h;
-  const names = h.routes
-    .map((id) => routes[id]?.short || routes[id]?.long)
-    .filter(Boolean);
+  const groups = routeGroups(h),
+    railNames = groups.rail.map((id) => routes[id]?.short).filter(Boolean),
+    busNames = [...groups.urban, ...groups.intercity, ...groups.night]
+      .map((id) => routes[id]?.short)
+      .filter(Boolean),
+    shownBus = busNames.slice(0, 8),
+    hiddenBus = busNames.length - shownBus.length;
   m.bindTooltip(
-    `<b>${esc(h.name)}</b><br>${esc(names.join(" · ") || "Aucune ligne renseignée")}`,
-    { direction: "top", offset: [0, -6] },
+    `<div class="tooltip-card"><b>${esc(h.name)}</b>${railNames.length ? `<span><i>RER · Train</i>${esc(railNames.join(" · "))}</span>` : ""}${shownBus.length ? `<span><i>Bus</i>${esc(shownBus.join(" · "))}${hiddenBus > 0 ? ` <em>+${hiddenBus}</em>` : ""}</span>` : ""}</div>`,
+    {
+      direction: "top",
+      offset: [0, -10],
+      className: "mobility-tooltip",
+      opacity: 1,
+    },
   );
   m.on("click", (e) => {
     L.DomEvent.stopPropagation(e);
@@ -281,12 +364,29 @@ D.hubs.forEach((h) => {
     openDetail(
       h.name,
       isRail(h) ? "GARE / PÔLE D’ÉCHANGES" : "ZONE DE CORRESPONDANCE",
-      `${h.routes.length} ligne${h.routes.length > 1 ? "s" : ""} · ${h.n} quai${h.n > 1 ? "s" : ""}`,
+      hubSubtitle(h),
       hubCard(h),
     );
   });
   m.addTo(isRail(h) ? layers.stations : layers.stops);
   hubMarkers.push(m);
+});
+function refreshBusStops() {
+  const zoom = map.getZoom();
+  layers.stops.clearLayers();
+  hubMarkers.forEach((marker) => {
+    const hub = marker.hubData;
+    if (isRail(hub)) return;
+    const visible =
+      zoom >= 14 || (zoom >= 12 && hub.n >= 2) || (zoom < 12 && hub.n >= 5);
+    if (visible) layers.stops.addLayer(marker);
+  });
+}
+map.on("zoomend", () => {
+  const toggle = document.querySelector('[data-layer="stops"]');
+  if (!toggle?.checked) return;
+  refreshBusStops();
+  if (!map.hasLayer(layers.stops)) layers.stops.addTo(map);
 });
 function lineCard(id) {
   const r = routes[id],
@@ -310,9 +410,9 @@ function routeSubtitle(r) {
 function focusStop(stopId) {
   const marker = hubMarkers.find((m) => m.hubData.stops.includes(stopId));
   if (!marker) return;
-  const group = isRail(marker.hubData) ? layers.stations : layers.stops;
-  if (!map.hasLayer(group)) group.addTo(map);
-  if (!group.hasLayer(marker)) group.addLayer(marker);
+  if (!layers.selectedStops.hasLayer(marker))
+    layers.selectedStops.addLayer(marker);
+  if (!map.hasLayer(layers.selectedStops)) layers.selectedStops.addTo(map);
   map.setView(marker.getLatLng(), 16, { animate: true });
   marker.fire("click");
 }
@@ -353,14 +453,28 @@ function selectRoute(id) {
     map.fitBounds(layers.route.getBounds(), { padding: [40, 40] });
   }
   const matching = hubMarkers.filter((m) => m.hubData.routes.includes(id));
-  layers.stops.addTo(map);
-  document.querySelector('[data-layer="stops"]').checked = true;
-  hubMarkers.forEach((m) => {
-    const g = isRail(m.hubData) ? layers.stations : layers.stops;
-    m.setIcon(hubIcon(m.hubData, matching.includes(m) ? `#${r.color}` : null));
-    if (matching.includes(m)) {
-      if (!g.hasLayer(m)) g.addLayer(m);
-    } else if (g.hasLayer(m)) g.removeLayer(m);
+  layers.selectedStops.clearLayers();
+  layers.selectedStops.addTo(map);
+  matching.forEach((m) => {
+    const selected = L.marker(m.getLatLng(), {
+      icon: hubIcon(m.hubData, `#${r.color}`),
+    });
+    selected.bindTooltip(m.getTooltip()?.getContent() || esc(m.hubData.name), {
+      direction: "top",
+      offset: [0, -10],
+      className: "mobility-tooltip",
+    });
+    selected.on("click", (e) => {
+      L.DomEvent.stopPropagation(e);
+      selectedPoint = e.latlng;
+      openDetail(
+        m.hubData.name,
+        isRail(m.hubData) ? "GARE / PÔLE D’ÉCHANGES" : "ZONE DE CORRESPONDANCE",
+        hubSubtitle(m.hubData),
+        hubCard(m.hubData),
+      );
+    });
+    selected.addTo(layers.selectedStops);
   });
   openDetail(r.short || r.long, "LIGNE IDFM", routeSubtitle(r), lineCard(id), {
     color: `#${r.color}`,
@@ -375,6 +489,25 @@ function selectRoute(id) {
     `${matching.length} zones desservies · ${r.destinations?.join(" / ") || ""}`;
 }
 window.selectRoute = selectRoute;
+Object.entries(routes).forEach(([id, r]) => {
+  if (isRailRoute(id) || !r.geometry?.length) return;
+  const line = L.polyline(r.geometry, {
+    color: `#${r.color}`,
+    weight: 2.4,
+    opacity: 0.68,
+  });
+  line.bindTooltip(
+    `<div class="tooltip-card route"><b>Bus ${esc(r.short || r.long)}</b><span>${esc((r.destinations || []).slice(0, 2).join(" ↔ ") || r.long)}</span></div>`,
+    { sticky: true, className: "mobility-tooltip", opacity: 1 },
+  );
+  line.on("mouseover", () => line.setStyle({ weight: 5, opacity: 1 }));
+  line.on("mouseout", () => line.setStyle({ weight: 2.4, opacity: 0.68 }));
+  line.on("click", (e) => {
+    L.DomEvent.stopPropagation(e);
+    selectRoute(id);
+  });
+  line.addTo(layers.busRoutes);
+});
 document.querySelector("#line-filter").oninput = (e) => {
   const q = e.target.value.trim().toLowerCase(),
     ids = Object.keys(routes).filter((id) =>
@@ -385,12 +518,9 @@ document.querySelector("#line-filter").oninput = (e) => {
       map.removeLayer(layers.route);
       layers.route = null;
     }
-    layers.stops.remove();
-    document.querySelector('[data-layer="stops"]').checked = false;
-    hubMarkers.forEach((m) => {
-      const g = isRail(m.hubData) ? layers.stations : layers.stops;
-      if (!g.hasLayer(m)) g.addLayer(m);
-    });
+    if (map.hasLayer(layers.selectedStops))
+      map.removeLayer(layers.selectedStops);
+    layers.selectedStops.clearLayers();
     document.querySelector("#line-result").textContent =
       `${Object.keys(routes).length} lignes IDFM dans le département`;
     return;
@@ -404,15 +534,15 @@ document.querySelector("#line-filter").oninput = (e) => {
   } else
     document.querySelector("#line-result").textContent = "Aucune ligne trouvée";
 };
-document
-  .querySelectorAll("[data-layer]")
-  .forEach(
-    (i) =>
-      (i.onchange = () =>
-        i.checked
-          ? layers[i.dataset.layer].addTo(map)
-          : map.removeLayer(layers[i.dataset.layer])),
-  );
+document.querySelectorAll("[data-layer]").forEach(
+  (i) =>
+    (i.onchange = () => {
+      if (i.dataset.layer === "stops" && i.checked) refreshBusStops();
+      i.checked
+        ? layers[i.dataset.layer].addTo(map)
+        : map.removeLayer(layers[i.dataset.layer]);
+    }),
+);
 document.querySelector("#progress").style.width = "100%";
 document.querySelector("#live-dot").classList.add("ok");
 const C = window.COMMUNES95;
@@ -484,12 +614,20 @@ function nearby(layer, p, r) {
   return n;
 }
 function isoBlock() {
-  return `<section class="summary"><h3>Accès au réseau</h3><p>Calcule la zone accessible et les cheminements vers les transports proches.</p><div class="iso-tools" style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><select id="iso-mode"><option value="pedestrian">À pied</option><option value="car">En voiture</option></select><select id="iso-time"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select><button style="grid-column:1/-1" onclick="showIsochrone()">Afficher l’accès</button></div><p id="iso-status" class="iso-status">Réseau BD TOPO</p></section>`;
+  return `<section class="summary iso-card"><div class="iso-heading"><span><img src="./icons/clock.svg" alt=""></span><div><h3>Jusqu’où peux-tu aller ?</h3><p>Zone accessible depuis ce point, calculée sur le réseau réel.</p></div></div><input id="iso-mode" type="hidden" value="pedestrian"><input id="iso-time" type="hidden" value="10"><div class="iso-label">Mode de déplacement</div><div class="iso-segments mode"><button class="active" data-iso-mode="pedestrian" onclick="setIsoOption('mode','pedestrian',this)"><img src="./icons/person-standing.svg" alt="">À pied</button><button data-iso-mode="car" onclick="setIsoOption('mode','car',this)"><img src="./icons/car-front.svg" alt="">Voiture</button></div><div class="iso-label">Temps de trajet</div><div class="iso-segments time"><button data-iso-time="5" onclick="setIsoOption('time','5',this)">5 min</button><button class="active" data-iso-time="10" onclick="setIsoOption('time','10',this)">10 min</button><button data-iso-time="15" onclick="setIsoOption('time','15',this)">15 min</button><button data-iso-time="30" onclick="setIsoOption('time','30',this)">30 min</button></div><button class="iso-submit" onclick="showIsochrone()"><span>Calculer la zone accessible</span><b>→</b></button><p id="iso-status" class="iso-status"><i></i> Calcul IGN · réseau BD TOPO</p></section>`;
 }
+function setIsoOption(kind, value, button) {
+  document.querySelector(`#iso-${kind}`).value = value;
+  button.parentElement
+    .querySelectorAll("button")
+    .forEach((item) => item.classList.toggle("active", item === button));
+}
+window.setIsoOption = setIsoOption;
 async function showIsochrone() {
   const mode = document.querySelector("#iso-mode").value,
     min = document.querySelector("#iso-time").value,
     status = document.querySelector("#iso-status"),
+    submit = document.querySelector(".iso-submit"),
     qs = new URLSearchParams({
       resource: "bdtopo-pgr",
       point: `${selectedPoint.lng},${selectedPoint.lat}`,
@@ -500,7 +638,9 @@ async function showIsochrone() {
       geometryFormat: "geojson",
       timeUnit: "minute",
     });
-  status.textContent = "Calcul en cours…";
+  status.innerHTML = "<i></i> Calcul en cours…";
+  status.className = "iso-status loading";
+  submit.disabled = true;
   try {
     const r = await fetch(`https://data.geopf.fr/navigation/isochrone?${qs}`),
       d = await r.json();
@@ -529,8 +669,12 @@ async function showIsochrone() {
     layers.access = null;
     map.fitBounds(layers.iso.getBounds(), { padding: [35, 35] });
     status.textContent = `Zone accessible en ${min} min · ${near.length} transport${near.length > 1 ? "s" : ""} proche${near.length > 1 ? "s" : ""}.`;
+    status.className = "iso-status success";
   } catch {
     status.textContent = "Calcul disponible sur la version en ligne.";
+    status.className = "iso-status error";
+  } finally {
+    submit.disabled = false;
   }
 }
 window.showIsochrone = showIsochrone;
