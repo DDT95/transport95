@@ -239,7 +239,6 @@ backBtn.onclick = () => {
   const v = detailHistory.pop();
   if (!v) return;
   renderDetail(v);
-  map.setView(v.center, v.zoom, { animate: true });
 };
 function resetNavigation() {
   ["route", "access", "iso", "selectedStops"].forEach((k) => {
@@ -616,6 +615,8 @@ window.focusStop = focusStop;
 function selectRoute(id) {
   const r = routes[id];
   if (!r) return;
+  const preservedCenter = map.getCenter(),
+    preservedZoom = map.getZoom();
   activeRouteId = id;
   styleBusRouteLayers(id);
   if (layers.route) map.removeLayer(layers.route);
@@ -689,6 +690,8 @@ function selectRoute(id) {
   });
   document.querySelector("#line-result").textContent =
     `${matching.length} zones desservies · ${r.destinations?.join(" / ") || ""}`;
+  map.stop();
+  map.setView(preservedCenter, preservedZoom, { animate: false });
 }
 window.selectRoute = selectRoute;
 Object.entries(routes).forEach(([id, r]) => {
