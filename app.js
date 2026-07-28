@@ -1,4 +1,8 @@
-const map = L.map("map", { zoomControl: false, maxBoundsViscosity: 0.8 });
+const map = L.map("map", {
+  center: [49.055, 2.15],
+  zoom: 10,
+  zoomControl: false,
+});
 map.createPane("roadsPane");
 map.getPane("roadsPane").style.zIndex = 330;
 map.createPane("cyclePane");
@@ -824,8 +828,6 @@ if (C) {
   })
     .addTo(map)
     .getBounds();
-  map.fitBounds(b, { padding: [24, 24] });
-  map.setMaxBounds(b.pad(0.35));
   document.querySelector("#home").onclick = () =>
     map.fitBounds(b, { padding: [24, 24] });
 }
