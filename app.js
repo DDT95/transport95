@@ -689,16 +689,6 @@ function selectRoute(id) {
   });
   document.querySelector("#line-result").textContent =
     `${matching.length} zones desservies · ${r.destinations?.join(" / ") || ""}`;
-  if (layers.route) {
-    const mapWidth = map.getSize().x,
-      rightClearance = Math.min(drawer.offsetWidth + 32, mapWidth * 0.45);
-    map.fitBounds(layers.route.getBounds(), {
-      paddingTopLeft: [48, 48],
-      paddingBottomRight: [rightClearance, 48],
-      maxZoom: 14,
-      animate: true,
-    });
-  }
 }
 window.selectRoute = selectRoute;
 Object.entries(routes).forEach(([id, r]) => {
