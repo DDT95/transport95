@@ -201,6 +201,67 @@
   color: #27456d !important;
   font-size: 10px !important;
 }
+.nearest-card {
+  border-color: #b8c8ff;
+  background: linear-gradient(145deg, #fff, #f5f7ff);
+}
+.nearest-heading {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.nearest-heading > span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #000091;
+}
+.nearest-heading img {
+  width: 24px;
+  height: 24px;
+  filter: brightness(0) invert(1);
+}
+.nearest-heading small {
+  color: #000091;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.nearest-heading h3 {
+  margin: 3px 0 0;
+  font-size: 18px;
+}
+.nearest-heading p {
+  margin-top: 4px;
+}
+.more-routes {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 8px;
+  background: #e8eaf3;
+  color: #4b5264;
+  font-size: 10px;
+  font-weight: 700;
+}
+.nearest-open {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 13px;
+  padding: 11px 13px;
+  border: 0;
+  border-radius: 11px;
+  background: #000091;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
 .station-schedule .no-passage {
   display: block;
   color: #7b8190;

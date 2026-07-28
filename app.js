@@ -857,6 +857,55 @@ function nearby(layer, p, r) {
   });
   return n;
 }
+function nearestHub(point) {
+  return hubMarkers.reduce((nearest, marker) => {
+    const distance = point.distanceTo(marker.getLatLng());
+    return !nearest || distance < nearest.distance
+      ? { hub: marker.hubData, marker, distance }
+      : nearest;
+  }, null);
+}
+function distanceLabel(distance) {
+  return distance < 1000
+    ? `${Math.round(distance / 10) * 10} m`
+    : `${(distance / 1000).toFixed(1).replace(".", ",")} km`;
+}
+function showNearestLink(point, nearest) {
+  if (layers.access) map.removeLayer(layers.access);
+  const destination = nearest.marker.getLatLng();
+  layers.access = L.featureGroup([
+    L.circleMarker(point, {
+      radius: 5,
+      color: "#fff",
+      weight: 2,
+      fillColor: "#000091",
+      fillOpacity: 1,
+      interactive: false,
+    }),
+    L.polyline([point, destination], {
+      color: "#000091",
+      weight: 2,
+      opacity: 0.65,
+      dashArray: "5 7",
+      interactive: false,
+    }),
+    L.circleMarker(destination, {
+      radius: 7,
+      color: "#000091",
+      weight: 2,
+      fillColor: "#fff",
+      fillOpacity: 1,
+      interactive: false,
+    }),
+  ]).addTo(map);
+}
+function nearestHubCard(nearest) {
+  const hub = nearest.hub,
+    rail = isRail(hub),
+    routeIds = uniqueRoutes(hub.routes).slice(0, 8),
+    hidden = Math.max(0, uniqueRoutes(hub.routes).length - routeIds.length);
+  return `<section class="summary nearest-card"><div class="nearest-heading"><span><img src="./icons/${rail ? "train-front" : "bus-front"}.svg" alt=""></span><div><small>Transport le plus proche</small><h3>${esc(hub.name)}</h3><p>${rail ? "Gare ou pôle d’échanges" : "Arrêt ou zone de correspondance"} · <b>${distanceLabel(nearest.distance)}</b></p></div></div><div class="route-list">${routeIds.map(routeChip).join("")}${hidden ? `<span class="more-routes">+${hidden}</span>` : ""}</div><button class="nearest-open" onclick='focusStop(${JSON.stringify(hub.stops[0])})'>Ouvrir ce point d’arrêt <b>→</b></button></section>`;
+}
 function isoBlock() {
   return `<section class="summary iso-card"><div class="iso-heading"><span><img src="./icons/clock.svg" alt=""></span><div><h3>Jusqu’où peux-tu aller ?</h3><p>Zone accessible depuis ce point, calculée sur le réseau réel.</p></div></div><input id="iso-mode" type="hidden" value="pedestrian"><input id="iso-time" type="hidden" value="10"><div class="iso-label">Mode de déplacement</div><div class="iso-segments mode"><button class="active" data-iso-mode="pedestrian" onclick="setIsoOption('mode','pedestrian',this)"><img src="./icons/person-standing.svg" alt="">À pied</button><button data-iso-mode="car" onclick="setIsoOption('mode','car',this)"><img src="./icons/car-front.svg" alt="">Voiture</button></div><div class="iso-label">Temps de trajet</div><div class="iso-segments time"><button data-iso-time="5" onclick="setIsoOption('time','5',this)">5 min</button><button class="active" data-iso-time="10" onclick="setIsoOption('time','10',this)">10 min</button><button data-iso-time="15" onclick="setIsoOption('time','15',this)">15 min</button><button data-iso-time="30" onclick="setIsoOption('time','30',this)">30 min</button></div><button class="iso-submit" onclick="showIsochrone()"><span>Calculer la zone accessible</span><b>→</b></button><p id="iso-status" class="iso-status"><i></i> Calcul IGN · réseau BD TOPO</p></section>`;
 }
@@ -926,12 +975,14 @@ async function analyze(p) {
   selectedPoint = p;
   const a = await reverse(p),
     s = nearby(layers.stations, p, 3000),
-    n = nearby(layers.stops, p, 800);
+    n = nearby(layers.stops, p, 800),
+    nearest = nearestHub(p);
+  if (nearest) showNearestLink(p, nearest);
   openDetail(
     a?.city || "Point sélectionné",
     "ACCESSIBILITÉ AUX TRANSPORTS",
     a?.label || `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
-    `<section class="summary"><h3>Desserte de proximité</h3><div class="metrics"><div class="metric"><b>${s}</b><span>pôles à 3 km</span></div><div class="metric"><b>${n}</b><span>zones à 800 m</span></div><div class="metric"><b>${s + n}</b><span>correspondances</span></div></div></section>${isoBlock()}<section class="summary"><h3>Réseau routier</h3><p>Active la couche BD TOPO puis clique à proximité d’une voie pour analyser son accessibilité. L’enrichissement trafic et accidents est en préparation à partir des sources routières ouvertes.</p></section>`,
+    `${nearest ? nearestHubCard(nearest) : ""}<section class="summary"><h3>Desserte de proximité</h3><div class="metrics"><div class="metric"><b>${s}</b><span>pôles à 3 km</span></div><div class="metric"><b>${n}</b><span>zones à 800 m</span></div><div class="metric"><b>${s + n}</b><span>correspondances</span></div></div></section>${isoBlock()}<section class="summary"><h3>Réseau routier</h3><p>Active la couche BD TOPO puis clique à proximité d’une voie pour analyser son accessibilité. L’enrichissement trafic et accidents est en préparation à partir des sources routières ouvertes.</p></section>`,
   );
 }
 map.on("click", (e) => analyze(e.latlng));
