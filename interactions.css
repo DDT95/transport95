@@ -193,9 +193,6 @@
   border-radius: 99px;
   background: #b9c2d4;
 }
-.rail-reference-layer {
-  filter: grayscale(1) contrast(0.55) brightness(1.45) !important;
-}
 .direction-time {
   grid-column: 2;
   display: flex;

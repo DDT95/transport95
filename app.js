@@ -14,8 +14,6 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: "© OpenStreetMap",
 }).addTo(map);
-const wmts = (l) =>
-  `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${l}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png`;
 function roadColor(p) {
   const n = p.numero || "";
   return n.startsWith("A")
@@ -56,12 +54,6 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
         attribution: "Sytadin · DIRIF",
       },
     ),
-    rail: L.tileLayer(wmts("TRANSPORTNETWORKS.RAILWAYS"), {
-      opacity: 0.22,
-      zIndex: 340,
-      className: "rail-reference-layer",
-      attribution: "BD TOPO · IGN",
-    }),
     roads: L.geoJSON(
       window.ROADS95 || { type: "FeatureCollection", features: [] },
       {
