@@ -1,5 +1,17 @@
 # Observatoire des transports du Val-d’Oise
 
+Carte interactive des réseaux, de l'offre de transport et de l'accessibilité dans le Val-d'Oise.
+
+## Données actualisées
+
+- Offre et horaires théoriques : GTFS Île-de-France Mobilités.
+- Circulation et événements routiers : flux Sytadin/DIRIF, reconstruits à chaque déploiement planifié.
+- Points de vente : référentiel PRIM Île-de-France Mobilités.
+- Routes et voies ferrées : BD TOPO/Géoplateforme.
+- Aménagements cyclables : Base nationale des aménagements cyclables et Geovelo.
+
+Le workflow GitHub Pages reconstruit le site toutes les cinq minutes. L'interface indique toujours l'heure de la donnée routière et distingue les horaires GTFS théoriques du temps réel.
+
 Carte institutionnelle interactive consacrée à l’offre de transport, aux infrastructures et aux services de mobilité du Val-d’Oise.
 
 ## Développement local

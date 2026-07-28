@@ -99,6 +99,18 @@
                   ><small>Tracés GTFS · couleurs IDFM</small></span
                 ><input type="checkbox" data-layer="busRoutes" /></label
               ><label
+                ><img class="layer-picto" src="icons/ticket.svg" alt="" />
+                <span
+                  ><b>Points de vente</b
+                  ><small>Tickets · Navigo · services</small></span
+                ><input type="checkbox" data-layer="sales" /></label
+              ><label
+                ><img class="layer-picto" src="icons/gauge.svg" alt="" />
+                <span
+                  ><b>Circulation en direct</b
+                  ><small>Sytadin · actualisation 5 min</small></span
+                ><input type="checkbox" data-layer="traffic" /></label
+              ><label
                 ><i style="--c: #6f4c9b"></i
                 ><span
                   ><b>Voies ferrées</b
@@ -122,7 +134,7 @@
               <h2>Sources</h2>
               <p>
                 PAN transport · Île-de-France Mobilités · BD TOPO ·
-                Géoplateforme · Geovelo.
+                Géoplateforme · Geovelo · Sytadin.
               </p>
             </section>
           </div>
@@ -138,7 +150,7 @@
         </section>
       </main>
       <footer>
-        <span><b>Données embarquées</b> · fonctionnement local</span
+        <span><b>Sources officielles</b> · flux datés et qualifiés</span
         ><span>DDT du Val-d’Oise · Leaflet 1.9.4</span>
       </footer>
     </div>
@@ -156,6 +168,7 @@
     <script src="./mobility95.js"></script>
     <script src="./roads95.js"></script>
     <script src="./cycle95.js"></script>
+    <script src="./live95.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -3,6 +3,8 @@ map.createPane("roadsPane");
 map.getPane("roadsPane").style.zIndex = 330;
 map.createPane("cyclePane");
 map.getPane("cyclePane").style.zIndex = 360;
+map.createPane("trafficPane");
+map.getPane("trafficPane").style.zIndex = 355;
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -31,6 +33,7 @@ function cycleColor(p) {
         : "#008941";
 }
 const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
+  LIVE = window.LIVE95 || { traffic: {}, sales: { points: [] } },
   routes = D.routes,
   stopsById = Object.fromEntries(D.stops.map((s) => [s.id, s])),
   layers = {
@@ -38,6 +41,16 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     stops: L.layerGroup(),
     selectedStops: L.layerGroup(),
     busRoutes: L.layerGroup(),
+    sales: L.layerGroup(),
+    traffic: L.geoJSON(
+      LIVE.traffic?.features || { type: "FeatureCollection", features: [] },
+      {
+        pane: "trafficPane",
+        style: trafficStyle,
+        onEachFeature: trafficFeature,
+        attribution: "Sytadin · DIRIF",
+      },
+    ),
     rail: L.tileLayer(wmts("TRANSPORTNETWORKS.RAILWAYS"), {
       opacity: 0.7,
       zIndex: 340,
@@ -135,6 +148,64 @@ function roadFeature(f, layer) {
     );
   });
 }
+function trafficStyle(f) {
+  const p = f.properties;
+  return {
+    color: p.events?.length
+      ? "#e1000f"
+      : p.state === "Bouchon"
+        ? "#ff3b30"
+        : "#16a34a",
+    weight: p.events?.length ? 6 : 5,
+    opacity: 0.9,
+  };
+}
+function safeText(value) {
+  return String(value || "Non renseigné").replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character],
+  );
+}
+function trafficFeature(f, layer) {
+  const p = f.properties,
+    event = p.events?.[0],
+    updated = LIVE.traffic?.updated
+      ? new Date(LIVE.traffic.updated).toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "heure inconnue";
+  layer.bindTooltip(
+    `<div class="tooltip-card"><b>${safeText(p.road)}</b><span><i>Trafic</i>${safeText(p.state)}${event ? ` · ${safeText(event.type)}` : ""}</span></div>`,
+    { sticky: true, className: "mobility-tooltip", opacity: 1 },
+  );
+  layer.options.bubblingMouseEvents = false;
+  layer.on("mouseover", () => layer.setStyle({ weight: 8, opacity: 1 }));
+  layer.on("mouseout", () => layer.setStyle(trafficStyle(f)));
+  layer.on("click", (e) => {
+    L.DomEvent.stopPropagation(e);
+    openDetail(
+      p.road,
+      "CIRCULATION EN DIRECT",
+      `${p.state} · actualisé à ${updated}`,
+      `<section class="summary live-summary"><div class="live-status ${p.state === "Bouchon" ? "blocked" : "fluid"}"><img src="icons/gauge.svg" alt=""><div><small>État observé</small><b>${safeText(p.state)}</b></div><span>${updated}</span></div></section>${event ? `<section class="summary alert-summary"><h3>${safeText(event.type)}</h3><p>${safeText(event.detail)}</p><small>Du ${formatLiveDate(event.start)}${event.end ? ` au ${formatLiveDate(event.end)}` : ""}</small></section>` : ""}<section class="summary"><h3>Gestion du tronçon</h3><p>Exploitant : <b>${safeText(p.operator)}</b><br>Fermeture : ${safeText(p.closure)}<br>Voies fermées : ${p.closed_lanes || 0}</p><p class="data-freshness">Source Sytadin · DIRIF · actualisation automatique toutes les 5 minutes.</p></section>`,
+    );
+  });
+}
+function formatLiveDate(value) {
+  if (!value) return "date inconnue";
+  return new Date(value).toLocaleString("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
 function cycleFeature(f, layer) {
   const p = f.properties;
   const amenagement =
@@ -194,11 +265,21 @@ function isRailRoute(id) {
 }
 function hubIcon(h, color) {
   const rail = isRail(h),
-    size = rail ? 34 : Math.min(24, 16 + Math.log2(h.n + 1) * 2),
-    icon = rail ? "train-front" : "bus-front";
+    zoom = map.getZoom(),
+    compact = zoom < 13,
+    size = rail
+      ? compact
+        ? 12
+        : 22
+      : compact
+        ? 9
+        : Math.min(18, 13 + Math.log2(h.n + 1)),
+    icon = rail ? "rer-train" : "bus";
   return L.divIcon({
-    className: "hub-icon hub-icon-marker",
-    html: `<span class="${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"><img src="./icons/${icon}.svg" alt=""></span>`,
+    className: `hub-icon hub-icon-marker ${compact ? "compact" : "pictogram"}`,
+    html: compact
+      ? `<span class="mobility-dot ${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"></span>`
+      : `<span class="${rail ? "rail" : "bus"}" style="--marker:${color || "#000091"};width:${size}px;height:${size}px"><img src="./icons/idfm/${icon}.jpg" alt=""></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -371,6 +452,37 @@ D.hubs.forEach((h) => {
   m.addTo(isRail(h) ? layers.stations : layers.stops);
   hubMarkers.push(m);
 });
+function saleIcon() {
+  const compact = map.getZoom() < 13,
+    size = compact ? 8 : 22;
+  return L.divIcon({
+    className: `sale-marker ${compact ? "compact" : "pictogram"}`,
+    html: compact
+      ? "<span></span>"
+      : '<span><img src="icons/ticket.svg" alt=""></span>',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+const salesMarkers = [];
+(LIVE.sales?.points || []).forEach((point) => {
+  const marker = L.marker([point.lat, point.lon], { icon: saleIcon() });
+  marker.bindTooltip(
+    `<div class="tooltip-card"><b>${esc(point.name)}</b><span><i>${esc(point.type)}</i>${esc(point.service)}</span></div>`,
+    { direction: "top", className: "mobility-tooltip", opacity: 1 },
+  );
+  marker.on("click", (event) => {
+    L.DomEvent.stopPropagation(event);
+    openDetail(
+      point.name,
+      "POINT DE VENTE",
+      point.type || "Titres de transport",
+      `<section class="summary sale-card"><div class="sale-heading"><img src="icons/ticket.svg" alt=""><div><h3>${esc(point.service)}</h3><p>${esc(point.address)}</p></div></div><dl><div><dt>Horaires</dt><dd>${esc(point.hours || "Non communiqués")}</dd></div><div><dt>Services</dt><dd>${esc(point.type)}${point.easy ? " · Navigo Easy disponible" : ""}</dd></div></dl></section><section class="summary fares"><div class="summary-title"><div><h3>Tarifs 2026</h3><p>Tarifs publics Île-de-France Mobilités.</p></div><span>Officiel</span></div><div class="fare-grid"><div><span>Bus · Tram</span><b>2,05 €</b><small>Réduit 1,05 €</small></div><div><span>Métro · Train · RER</span><b>2,55 €</b><small>Réduit 1,30 €</small></div><div><span>Navigo Liberté+</span><b>dès 1,64 €</b><small>par trajet</small></div><div><span>Navigo semaine</span><b>32,40 €</b><small>zones 1 à 5</small></div></div><a href="https://www.iledefrance-mobilites.fr/tarifs-titre-de-transport-en-commun-2026" target="_blank" rel="noopener">Voir tous les tarifs IDFM ↗</a></section>`,
+    );
+  });
+  marker.addTo(layers.sales);
+  salesMarkers.push(marker);
+});
 function refreshBusStops() {
   const zoom = map.getZoom();
   layers.stops.clearLayers();
@@ -383,6 +495,8 @@ function refreshBusStops() {
   });
 }
 map.on("zoomend", () => {
+  hubMarkers.forEach((marker) => marker.setIcon(hubIcon(marker.hubData)));
+  salesMarkers.forEach((marker) => marker.setIcon(saleIcon()));
   const toggle = document.querySelector('[data-layer="stops"]');
   if (!toggle?.checked) return;
   refreshBusStops();
@@ -537,6 +651,8 @@ document.querySelector("#line-filter").oninput = (e) => {
 document.querySelectorAll("[data-layer]").forEach(
   (i) =>
     (i.onchange = () => {
+      if (["stations", "stops"].includes(i.dataset.layer))
+        hubMarkers.forEach((marker) => marker.setIcon(hubIcon(marker.hubData)));
       if (i.dataset.layer === "stops" && i.checked) refreshBusStops();
       i.checked
         ? layers[i.dataset.layer].addTo(map)
@@ -545,6 +661,19 @@ document.querySelectorAll("[data-layer]").forEach(
 );
 document.querySelector("#progress").style.width = "100%";
 document.querySelector("#live-dot").classList.add("ok");
+if (LIVE.traffic?.updated) {
+  const trafficTime = new Date(LIVE.traffic.updated).toLocaleTimeString(
+    "fr-FR",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
+  document.querySelector("#live-text").textContent =
+    `Trafic actualisé à ${trafficTime}`;
+  document.querySelector(".live-sub").textContent =
+    `Sytadin · ${LIVE.sales?.points?.length || 0} points de vente IDFM`;
+}
 const C = window.COMMUNES95;
 if (C) {
   const holes = [];
