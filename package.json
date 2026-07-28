@@ -1,12 +1,13 @@
 {
   "scripts": {
     "dev": "vite",
-    "build": "python3 scripts/build_live_data.py && vite build && cp app.js mobility95.js roads95.js cycle95.js live95.js dist/ && cp -R icons dist/",
+    "build": "python3 scripts/build_live_data.py && vite build && cp app.js pdf-export.js mobility95.js roads95.js cycle95.js live95.js dist/ && cp -R icons vendor dist/",
     "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-basic-ssl": "latest",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "vite": "latest"
-  },
-  "devDependencies": {}
+  }
 }

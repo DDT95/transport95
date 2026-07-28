@@ -34,6 +34,20 @@
   font-size: 17px;
   line-height: 1;
 }
+.republique {
+  width: 114px;
+  height: 84px;
+  overflow: visible;
+  align-items: center;
+}
+.brand-logo {
+  display: block;
+  width: 112px;
+  height: 80px;
+  object-fit: contain;
+  object-position: center;
+  transform: none;
+}
 .service-row:last-child {
   border-bottom: 0;
 }
