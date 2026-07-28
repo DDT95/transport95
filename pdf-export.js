@@ -118,6 +118,16 @@
     doc.setDrawColor(...BLUE); doc.setLineWidth(0.8); doc.line(14, 30, 196, 30);
   }
 
+  function addContinuationTitle(doc, route, title, subtitle) {
+    const color = (route.color || "000091").match(/.{2}/g).map((value) => parseInt(value, 16));
+    const textColor = (route.text || "FFFFFF").match(/.{2}/g).map((value) => parseInt(value, 16));
+    doc.setFillColor(...color); doc.rect(0, 0, 210, 4, "F");
+    doc.roundedRect(14, 13, 24, 13, 3, 3, "F");
+    doc.setTextColor(...textColor); doc.setFont("helvetica", "bold"); doc.setFontSize(route.short.length > 4 ? 10 : 14); doc.text(route.short, 26, 21.5, { align: "center" });
+    doc.setTextColor(...DEEP); doc.setFontSize(17); doc.text(title, 45, 18.5);
+    doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.text(subtitle, 45, 24);
+  }
+
   function addFooters(doc, label) {
     const total = doc.getNumberOfPages(), issued = new Date().toLocaleDateString("fr-FR");
     for (let page = 1; page <= total; page++) {
@@ -148,15 +158,19 @@
 
   function addLineContent(doc, logo, route) {
     const lineColor = route.color || "000091", rgb = lineColor.match(/.{2}/g).map((v) => parseInt(v, 16)), textRgb = (route.text || "FFFFFF").match(/.{2}/g).map((v) => parseInt(v, 16));
-    addPageHeader(doc, logo, "Fiche de connaissance territoriale");
-    doc.setFillColor(...rgb); doc.roundedRect(14, 38, 25, 15, 3, 3, "F"); doc.setTextColor(...textRgb); doc.setFont("helvetica", "bold"); doc.setFontSize(route.short.length > 4 ? 11 : 15); doc.text(route.short, 26.5, 48, { align: "center" });
-    doc.setTextColor(...DEEP); doc.setFontSize(19); doc.text("Ligne de transport", 45, 45);
-    doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text((route.destinations || []).join(" / ") || route.long, 45, 51, { maxWidth: 145 });
-    metricCard(doc, 14, 58, 42, route.stops.length, "arrêts dans le Val-d’Oise", "pin");
-    metricCard(doc, 60, 58, 42, (route.destinations || []).length || 2, "terminus / directions", "network");
-    metricCard(doc, 106, 58, 42, Object.keys(routes).length, "lignes IDFM recensées", "bus");
-    metricCard(doc, 152, 58, 44, LIVE.sales?.points?.length || 0, "points de vente", "€");
-    let y = sectionTitle(doc, 86, "pin", "Carte de situation", "Tracé dans le Val-d’Oise · arrêts et terminus");
+    if (logo) { const h = 18; doc.addImage(logo.data, "PNG", 14, 9, h * logo.ratio, h, undefined, "FAST"); }
+    doc.setTextColor(...BLUE); doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.text("MOBILITÉS · VAL-D’OISE", 58, 13);
+    doc.setTextColor(...DEEP); doc.setFontSize(15); doc.text("Observatoire des transports", 58, 20);
+    doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.text("Fiche de connaissance territoriale", 58, 25);
+    doc.setFillColor(...DEEP); doc.roundedRect(14, 34, 182, 34, 3, 3, "F");
+    doc.setFillColor(...rgb); doc.roundedRect(20, 42, 30, 18, 4, 4, "F"); doc.setTextColor(...textRgb); doc.setFont("helvetica", "bold"); doc.setFontSize(route.short.length > 4 ? 12 : 17); doc.text(route.short, 35, 53.5, { align: "center" });
+    doc.setTextColor(255,255,255); doc.setFontSize(18); doc.text("Synthèse de ligne", 58, 48.5);
+    doc.setTextColor(220,224,240); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text((route.destinations || []).join(" / ") || route.long, 58, 57, { maxWidth: 130 });
+    metricCard(doc, 14, 75, 42, route.stops.length, "arrêts dans le Val-d’Oise", "pin");
+    metricCard(doc, 60, 75, 42, (route.destinations || []).length || 2, "terminus / directions", "network");
+    metricCard(doc, 106, 75, 42, Object.keys(routes).length, "lignes IDFM recensées", "bus");
+    metricCard(doc, 152, 75, 44, LIVE.sales?.points?.length || 0, "points de vente", "€");
+    let y = sectionTitle(doc, 103, "pin", "Carte de situation", "Tracé dans le Val-d’Oise · arrêts et terminus");
     const mapCanvas = routeMapCanvas(route); doc.addImage(mapCanvas.toDataURL("image/jpeg", .92), "JPEG", 14, y, 182, 74, undefined, "FAST");
     y += 80;
     y = sectionTitle(doc, y, "network", "Lecture territoriale", "Caractéristiques essentielles de la desserte");
@@ -166,20 +180,20 @@
     doc.autoTable({ startY: y, margin: { left: 14, right: 14 }, theme: "plain", tableWidth: 182,
       body: [["Ligne", route.long || route.short], ["Terminus", (route.destinations || []).join(" / ") || "Non renseignés"], ["Premier horaire GTFS observé", serviceStart], ["Données", `GTFS IDFM du ${D.date.slice(6,8)}/${D.date.slice(4,6)}/${D.date.slice(0,4)}`]],
       styles: { fontSize: 7.5, cellPadding: 2, textColor: DEEP, lineColor: [229,232,240], lineWidth: { bottom: .2 } }, columnStyles: { 0: { fontStyle: "bold", textColor: MUTED, cellWidth: 48 } } });
-    doc.addPage(); addPageHeader(doc, logo, `Ligne ${route.short} · horaires et desserte`);
-    y = sectionTitle(doc, 40, "clock", "Prochains passages théoriques", "Horaires GTFS dans les deux sens · quatre prochains passages disponibles");
+    doc.addPage(); addContinuationTitle(doc, route, "Horaires & desserte", "Prochains passages théoriques et séquence des arrêts");
+    y = sectionTitle(doc, 38, "clock", "Prochains passages théoriques", "Horaires GTFS dans les deux sens · quatre prochains passages disponibles");
     doc.autoTable({ startY: y, margin: { left: 14, right: 14, bottom: 20 }, head: [["Arrêt", "Direction", "Prochains passages"]], body: lineScheduleRows(route), repeatHeaders: true,
       headStyles: { fillColor: BLUE, textColor: [255,255,255], fontStyle: "bold", fontSize: 7.5 },
       styles: { fontSize: 7, cellPadding: 1.8, lineColor: [226,230,238], lineWidth: { bottom: .18 }, valign: "middle" },
       columnStyles: { 0: { fontStyle: "bold", cellWidth: 46 }, 1: { cellWidth: 72 }, 2: { textColor: BLUE, fontStyle: "bold", cellWidth: 58 } },
-      didDrawPage: (data) => { if (data.pageNumber > 1) addPageHeader(doc, logo, `Ligne ${route.short} · horaires et desserte`); } });
+    });
     let after = doc.lastAutoTable.finalY + 9;
-    if (after > 244) { doc.addPage(); addPageHeader(doc, logo, `Ligne ${route.short} · arrêts et sources`); after = 40; }
+    if (after > 244) { doc.addPage(); addContinuationTitle(doc, route, "Arrêts & sources", "Séquence de desserte et traçabilité"); after = 38; }
     after = sectionTitle(doc, after, "pin", "Séquence des arrêts", `${route.stops.length} arrêts recensés sur le tracé sélectionné`);
     const stopRows = []; for (let i = 0; i < route.stops.length; i += 2) stopRows.push([`${String(i+1).padStart(2,"0")}  ${route.stops[i].name}`, route.stops[i+1] ? `${String(i+2).padStart(2,"0")}  ${route.stops[i+1].name}` : ""]);
     doc.autoTable({ startY: after, margin: { left: 14, right: 14, bottom: 20 }, body: stopRows, theme: "grid", styles: { fontSize: 7.2, cellPadding: 2, lineColor: [225,229,238], textColor: DEEP }, columnStyles: { 0: { cellWidth: 91 }, 1: { cellWidth: 91 } } });
     after = doc.lastAutoTable.finalY + 8;
-    if (after > 250) { doc.addPage(); addPageHeader(doc, logo, `Ligne ${route.short} · sources`); after = 40; }
+    if (after > 250) { doc.addPage(); addContinuationTitle(doc, route, "Sources", "Traçabilité et limites d’usage"); after = 38; }
     sectionTitle(doc, after, "i", "Sources et limites", "Traçabilité des informations de la fiche");
     doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
     doc.text(`Île-de-France Mobilités · GTFS théorique du ${D.date.slice(6,8)}/${D.date.slice(4,6)}/${D.date.slice(0,4)}. Référentiels territoriaux : IGN - BD TOPO et Géoplateforme. Circulation : Sytadin / DIRIF, dernière actualisation ${LIVE.traffic?.updated ? new Date(LIVE.traffic.updated).toLocaleString("fr-FR") : "indisponible"}. Les horaires théoriques ne remplacent pas l’information voyageurs en temps réel.`, 14, after + 12, { maxWidth: 182, lineHeightFactor: 1.45 });
@@ -196,7 +210,7 @@
     const wrapper = document.createElement("div"); wrapper.innerHTML = currentDetail.html || "";
     const rows = [...wrapper.querySelectorAll(".summary")].map((section) => [section.querySelector("h3")?.textContent.trim() || "Information", section.textContent.replace(section.querySelector("h3")?.textContent || "", "").replace(/\s+/g, " ").trim()]).filter((row) => row[1]);
     const y = sectionTitle(doc, 104, "i", "Synthèse des informations", "Données disponibles pour l’élément sélectionné");
-    doc.autoTable({ startY: y, margin: { left: 14, right: 14, bottom: 24 }, body: rows, theme: "grid", styles: { fontSize: 8, cellPadding: 3, lineColor: [224,228,237], valign: "top" }, columnStyles: { 0: { cellWidth: 45, fontStyle: "bold", textColor: BLUE, fillColor: [247,248,252] }, 1: { cellWidth: 137, textColor: DEEP } }, didDrawPage: (data) => { if (data.pageNumber > 1) addPageHeader(doc, logo, currentDetail.title); } });
+    doc.autoTable({ startY: y, margin: { left: 14, right: 14, bottom: 24 }, body: rows, theme: "grid", styles: { fontSize: 8, cellPadding: 3, lineColor: [224,228,237], valign: "top" }, columnStyles: { 0: { cellWidth: 45, fontStyle: "bold", textColor: BLUE, fillColor: [247,248,252] }, 1: { cellWidth: 137, textColor: DEEP } } });
     let after = doc.lastAutoTable.finalY + 8; if (after > 245) { doc.addPage(); addPageHeader(doc, logo, currentDetail.title); after = 40; }
     sectionTitle(doc, after, "i", "Sources et fraîcheur", "Référentiels mobilisés"); doc.setTextColor(...MUTED); doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.text("Île-de-France Mobilités · transport.data.gouv.fr · IGN BD TOPO · Géoplateforme · Base nationale des aménagements cyclables · Geovelo · Sytadin / DIRIF. Cette fiche restitue les données ouvertes disponibles au moment de l’édition.", 14, after + 12, { maxWidth: 182, lineHeightFactor: 1.45 });
   }
