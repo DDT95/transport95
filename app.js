@@ -52,8 +52,9 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
       },
     ),
     rail: L.tileLayer(wmts("TRANSPORTNETWORKS.RAILWAYS"), {
-      opacity: 0.7,
+      opacity: 0.22,
       zIndex: 340,
+      className: "rail-reference-layer",
       attribution: "BD TOPO · IGN",
     }),
     roads: L.geoJSON(
@@ -102,7 +103,19 @@ const drawer = document.querySelector("#drawer"),
         })[c],
     );
 let currentDetail = null,
-  detailHistory = [];
+  detailHistory = [],
+  activeRouteId = null;
+
+function styleBusRouteLayers(selectedId = null) {
+  layers.busRoutes.eachLayer((line) => {
+    const selected = selectedId && line.routeId === selectedId;
+    line.setStyle({
+      weight: selected ? 4 : selectedId ? 1.2 : 2.4,
+      opacity: selected ? 0.95 : selectedId ? 0.12 : 0.68,
+    });
+    if (selected) line.bringToFront();
+  });
+}
 function renderDetail(v) {
   currentDetail = v;
   document.querySelector("#detail-title").textContent = v.title;
@@ -238,6 +251,8 @@ function resetNavigation() {
   });
   detailHistory = [];
   currentDetail = null;
+  activeRouteId = null;
+  styleBusRouteLayers();
   document.querySelector("#line-filter").value = "";
   document.querySelector("#line-result").textContent =
     `${Object.keys(routes).length} lignes IDFM dans le département`;
@@ -535,19 +550,26 @@ window.focusStop = focusStop;
 function selectRoute(id) {
   const r = routes[id];
   if (!r) return;
+  activeRouteId = id;
+  styleBusRouteLayers(id);
   if (layers.route) map.removeLayer(layers.route);
   if (r.geometry?.length) {
-    layers.route = L.polyline(r.geometry, {
+    const routeHalo = L.polyline(r.geometry, {
+        color: "#fff",
+        weight: 12,
+        opacity: 0.92,
+        interactive: false,
+      }),
+      routeLine = L.polyline(r.geometry, {
       color: `#${r.color}`,
-      weight: 5,
-      opacity: 0.9,
-    })
-      .addTo(map)
-      .bindTooltip(
+      weight: 7,
+      opacity: 1,
+    }).bindTooltip(
         `<b>${esc(r.short || r.long)}</b><br>${esc((r.destinations || []).join(" ↔ ") || r.long)}`,
         { sticky: true },
       );
-    layers.route.on("click", (e) => {
+    layers.route = L.featureGroup([routeHalo, routeLine]).addTo(map);
+    routeLine.on("click", (e) => {
       L.DomEvent.stopPropagation(e);
       openDetail(
         r.short || r.long,
@@ -611,12 +633,18 @@ Object.entries(routes).forEach(([id, r]) => {
     weight: 2.4,
     opacity: 0.68,
   });
+  line.routeId = id;
   line.bindTooltip(
     `<div class="tooltip-card route"><b>Bus ${esc(r.short || r.long)}</b><span>${esc((r.destinations || []).slice(0, 2).join(" ↔ ") || r.long)}</span></div>`,
     { sticky: true, className: "mobility-tooltip", opacity: 1 },
   );
   line.on("mouseover", () => line.setStyle({ weight: 5, opacity: 1 }));
-  line.on("mouseout", () => line.setStyle({ weight: 2.4, opacity: 0.68 }));
+  line.on("mouseout", () =>
+    line.setStyle({
+      weight: activeRouteId === id ? 4 : activeRouteId ? 1.2 : 2.4,
+      opacity: activeRouteId === id ? 0.95 : activeRouteId ? 0.12 : 0.68,
+    }),
+  );
   line.on("click", (e) => {
     L.DomEvent.stopPropagation(e);
     selectRoute(id);
@@ -636,6 +664,8 @@ document.querySelector("#line-filter").oninput = (e) => {
     if (map.hasLayer(layers.selectedStops))
       map.removeLayer(layers.selectedStops);
     layers.selectedStops.clearLayers();
+    activeRouteId = null;
+    styleBusRouteLayers();
     document.querySelector("#line-result").textContent =
       `${Object.keys(routes).length} lignes IDFM dans le département`;
     return;

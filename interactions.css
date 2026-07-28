@@ -116,6 +116,30 @@
 }
 .drawer {
   width: min(520px, calc(100vw - 32px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.drawer-head {
+  z-index: 3;
+  box-shadow: 0 1px 0 #d7deea;
+}
+.drawer-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.drawer-body::-webkit-scrollbar {
+  width: 9px;
+}
+.drawer-body::-webkit-scrollbar-thumb {
+  border: 2px solid #fff;
+  border-radius: 99px;
+  background: #b9c2d4;
+}
+.rail-reference-layer {
+  filter: grayscale(1) contrast(0.55) brightness(1.45) !important;
 }
 .direction-time {
   grid-column: 2;
