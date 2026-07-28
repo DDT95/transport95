@@ -94,6 +94,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
 const drawer = document.querySelector("#drawer"),
   body = document.querySelector("#detail-body"),
   backBtn = document.querySelector("#back"),
+  exportPdfBtn = document.querySelector("#export-pdf"),
   esc = (s) =>
     String(s || "Non renseigné").replace(
       /[&<>"']/g,
@@ -146,6 +147,103 @@ function openDetail(title, type, sub, html, appearance = {}) {
     center: map.getCenter(),
     zoom: map.getZoom(),
     ...appearance,
+  });
+}
+
+function printableDetailHtml() {
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = currentDetail?.html || "";
+  wrapper.querySelectorAll(".iso-tools, .nearest-open").forEach((el) => el.remove());
+  wrapper.querySelectorAll(".station-schedule button span").forEach((el) => el.remove());
+  wrapper.querySelectorAll(".stop-sequence button > b").forEach((el) => el.remove());
+  wrapper.querySelectorAll("button").forEach((button) => {
+    const replacement = document.createElement("div");
+    replacement.className = button.className;
+    replacement.innerHTML = button.innerHTML;
+    button.replaceWith(replacement);
+  });
+  wrapper.querySelectorAll("[onclick]").forEach((el) => el.removeAttribute("onclick"));
+  return wrapper.innerHTML;
+}
+
+function routeSchematic() {
+  const route = activeRouteId && routes[activeRouteId];
+  if (!route?.geometry?.length) return "";
+  const points = route.geometry.filter(
+      (point) => Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1]),
+    ),
+    lats = points.map((point) => point[0]),
+    lons = points.map((point) => point[1]),
+    minLat = Math.min(...lats),
+    maxLat = Math.max(...lats),
+    minLon = Math.min(...lons),
+    maxLon = Math.max(...lons),
+    width = Math.max(maxLon - minLon, 0.001),
+    height = Math.max(maxLat - minLat, 0.001),
+    project = ([lat, lon]) =>
+      `${24 + ((lon - minLon) / width) * 712},${24 + ((maxLat - lat) / height) * 172}`,
+    line = points.map(project).join(" "),
+    routeStops = (route.stops || []).map((stop) => stopsById[stop.id] || stop),
+    stops = routeStops
+      .filter((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lon))
+      .map((stop) => `<circle cx="${24 + ((stop.lon - minLon) / width) * 712}" cy="${24 + ((maxLat - stop.lat) / height) * 172}" r="4"/>`)
+      .join("");
+  return `<section class="report-map"><h2>Tracé schématique de la ligne</h2><svg viewBox="0 0 760 220" role="img" aria-label="Tracé de la ligne ${esc(route.short)}"><polyline points="${line}" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${line}" fill="none" stroke="#${route.color}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><g fill="#fff" stroke="#${route.color}" stroke-width="3">${stops}</g></svg><p>Schéma de situation sans fond cartographique. Les points représentent les arrêts recensés dans le jeu GTFS.</p></section>`;
+}
+
+function buildPrintReportHtml() {
+  if (!currentDetail) return;
+  const issued = new Intl.DateTimeFormat("fr-FR", {
+      dateStyle: "long",
+      timeStyle: "short",
+    }).format(new Date()),
+    liveUpdated = LIVE.traffic?.updated
+      ? new Date(LIVE.traffic.updated).toLocaleString("fr-FR")
+      : "non disponible",
+    logo = new URL("prefet-val-doise-logo.png", window.location.href).href,
+    sourceDate = D.date
+      ? `${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}`
+      : "non renseignée",
+    accent = currentDetail.color || "#000091",
+    report = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Synthèse - ${esc(currentDetail.title)}</title><style>
+@page{size:A4;margin:14mm 14mm 16mm}*{box-sizing:border-box}body{margin:0;color:#161636;font-family:Arial,sans-serif;font-size:9.5pt;line-height:1.42}header{display:grid;grid-template-columns:31mm 1fr;gap:9mm;align-items:center;border-bottom:3px solid #000091;padding-bottom:6mm;margin-bottom:7mm}header img{width:30mm;max-height:25mm;object-fit:contain;object-position:left center}.kicker{color:#000091;font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.report-title{font-size:22pt;line-height:1.05;margin:2mm 0;color:#070047}.subtitle{color:#5d6578;font-size:10pt}.identity{border-left:5px solid ${accent};background:#f5f6fb;padding:5mm 6mm;margin-bottom:6mm;break-inside:avoid}.identity small{font-weight:700;color:#000091;letter-spacing:.1em}.identity h1{font-size:24pt;margin:1.5mm 0 1mm;color:#070047}.identity p{margin:0;color:#5d6578}.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 7mm;break-inside:avoid}.fact{border:1px solid #d8deea;border-radius:3mm;padding:3.5mm}.fact b{display:block;color:#000091;font-size:15pt}.fact span{color:#687083;font-size:7.5pt}.report-map,.summary{border:1px solid #d8deea;border-radius:3mm;padding:5mm;margin:0 0 5mm}.report-map{break-inside:avoid}.report-map h2,.summary h3{margin:0 0 3mm;color:#070047;font-size:13pt}.report-map svg{display:block;width:100%;height:54mm;background:#f4f6fa;border-radius:2mm}.report-map p{color:#687083;font-size:7.5pt;margin:2mm 0 0}.summary p{margin:2mm 0}.route-list{display:flex;flex-wrap:wrap;gap:2mm}.route-chip{display:inline-block;padding:1.5mm 2.5mm;border-radius:2mm;border:1px solid #d8deea;font-weight:700}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}.metric{background:#f4f6fa;border-radius:2mm;padding:3mm;text-align:center}.metric b{display:block;color:#000091;font-size:15pt}.service-row,.station-schedule{border-bottom:1px solid #e5e8ef;padding:2.5mm 0;break-inside:avoid}.station-schedule{display:grid;grid-template-columns:55mm 1fr;column-gap:5mm}.station-schedule>div:first-child{grid-column:1;grid-row:1/span 8;font-weight:700}.station-schedule p{grid-column:2;display:grid;grid-template-columns:1fr auto;gap:3mm;margin:1mm 0}.station-schedule p span{color:#000091;font-weight:700;text-align:right}.stop-sequence>div{display:flex;align-items:center;border-bottom:1px solid #e5e8ef;padding:2.2mm 0;break-inside:avoid}.stop-sequence span{display:flex;gap:3mm}.stop-sequence small{color:#7b8292}.iso-card,.nearest-card{break-inside:avoid}.sources{border-top:1px solid #ccd3df;margin-top:7mm;padding-top:4mm;color:#596174;font-size:8pt}.sources h2{font-size:10pt;color:#070047}.footer{position:fixed;left:14mm;right:14mm;bottom:5mm;display:flex;justify-content:space-between;color:#707789;font-size:7pt}.no-print,a{color:#000091}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@page{margin-bottom:24mm}
+.footer{position:static;margin-top:7mm;padding-top:3mm;border-top:1px solid #ccd3df}
+</style></head><body><header><img src="${logo}" alt="Préfet du Val-d’Oise"><div><div class="kicker">Mobilités · Val-d’Oise</div><div class="report-title">Observatoire des transports</div><div class="subtitle">Synthèse de connaissance territoriale</div></div></header><section class="identity"><small>${esc(currentDetail.type)}</small><h1>${esc(currentDetail.title)}</h1><p>${esc(currentDetail.sub)}</p></section><section class="facts"><div class="fact"><b>${Object.keys(routes).length}</b><span>lignes IDFM recensées</span></div><div class="fact"><b>${D.hubs.length}</b><span>zones et pôles de transport</span></div><div class="fact"><b>${LIVE.sales?.points?.length || 0}</b><span>points de vente</span></div><div class="fact"><b>184</b><span>communes du Val-d’Oise</span></div></section>${routeSchematic()}<main>${printableDetailHtml()}</main><section class="sources"><h2>Sources, périmètre et fraîcheur</h2><p><b>Transports :</b> Île-de-France Mobilités, données GTFS théoriques datées du ${sourceDate}. <b>Infrastructures :</b> IGN - BD TOPO et Géoplateforme. <b>Mobilités cyclables :</b> Base nationale des aménagements cyclables et Geovelo. <b>Circulation :</b> Sytadin / DIRIF, dernière actualisation disponible : ${liveUpdated}.</p><p>Les horaires sont théoriques sauf mention contraire. Cette fiche restitue les données ouvertes disponibles au moment de l’édition et ne remplace pas l’information voyageurs en temps réel.</p><p><b>Édition :</b> ${issued} · DDT du Val-d’Oise · transport.data.gouv.fr · data.gouv.fr</p></section><div class="footer"><span>Observatoire des transports du Val-d’Oise</span><span>${esc(currentDetail.title)} · ${issued}</span></div></body></html>`;
+  return report;
+}
+window.buildPrintReportHtml = buildPrintReportHtml;
+
+function exportCurrentDetailPdf() {
+  const report = buildPrintReportHtml();
+  if (!report) return;
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Autorise les fenêtres surgissantes pour générer la synthèse PDF.");
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(report);
+  printWindow.document.close();
+  printWindow.onload = () => setTimeout(() => printWindow.print(), 350);
+}
+exportPdfBtn.onclick = exportCurrentDetailPdf;
+
+// Stable print view used for direct links and automated layout checks.
+const printLineQuery = new URLSearchParams(window.location.search).get("printLine");
+if (printLineQuery) {
+  window.addEventListener("load", () => {
+    const routeId = Object.keys(routes).find(
+      (id) => id === printLineQuery || routes[id].short === printLineQuery,
+    );
+    if (!routeId) return;
+    selectRoute(routeId);
+    const report = buildPrintReportHtml();
+    if (report) {
+      document.open();
+      document.write(report);
+      document.close();
+    }
   });
 }
 function roadFeature(f, layer) {

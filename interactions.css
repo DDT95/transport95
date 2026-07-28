@@ -12,6 +12,28 @@
 .leaflet-container path.leaflet-interactive:focus {
   outline: none;
 }
+.export-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 9px 13px;
+  border: 1px solid #c7cde0;
+  border-radius: 10px;
+  background: #fff;
+  color: #000091;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.export-pdf:hover {
+  border-color: #000091;
+  background: #f3f3ff;
+}
+.export-pdf span {
+  font-size: 17px;
+  line-height: 1;
+}
 .service-row:last-child {
   border-bottom: 0;
 }
