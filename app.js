@@ -9,6 +9,8 @@ map.createPane("cyclePane");
 map.getPane("cyclePane").style.zIndex = 360;
 map.createPane("trafficPane");
 map.getPane("trafficPane").style.zIndex = 355;
+map.createPane("freightPane");
+map.getPane("freightPane").style.zIndex = 365;
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -36,6 +38,11 @@ function cycleColor(p) {
 }
 const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
   LIVE = window.LIVE95 || { traffic: {}, sales: { points: [] } },
+  FREIGHT = window.FREIGHT95 || {
+    ite: { type: "FeatureCollection", features: [] },
+    areas: { type: "FeatureCollection", features: [] },
+    multimodal: { type: "FeatureCollection", features: [] },
+  },
   routes = D.routes,
   stopsById = Object.fromEntries(D.stops.map((s) => [s.id, s])),
   layers = {
@@ -44,6 +51,58 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     selectedStops: L.layerGroup(),
     busRoutes: L.layerGroup(),
     railRoutes: L.layerGroup(),
+    freightRail: L.geoJSON(
+      {
+        type: "FeatureCollection",
+        features: [
+          ...FREIGHT.ite.features,
+          ...FREIGHT.multimodal.features.filter((f) => f.properties.mode === "ferrov"),
+        ],
+      },
+      {
+        pane: "freightPane",
+        pointToLayer: (_, latlng) =>
+          L.circleMarker(latlng, {
+            radius: 6,
+            color: "#fff",
+            weight: 2,
+            fillColor: "#7a1f5c",
+            fillOpacity: 0.95,
+          }),
+        onEachFeature: freightFeature,
+        attribution: "Cerema · ITE 3000 · Région Île-de-France",
+      },
+    ),
+    riverFreight: L.geoJSON(
+      {
+        type: "FeatureCollection",
+        features: FREIGHT.multimodal.features.filter((f) => f.properties.mode === "fluv"),
+      },
+      {
+        pane: "freightPane",
+        pointToLayer: (_, latlng) =>
+          L.circleMarker(latlng, {
+            radius: 7,
+            color: "#fff",
+            weight: 2,
+            fillColor: "#0078a8",
+            fillOpacity: 0.95,
+          }),
+        onEachFeature: freightFeature,
+        attribution: "Région Île-de-France · SDRIF",
+      },
+    ),
+    logistics: L.geoJSON(FREIGHT.areas, {
+      pane: "freightPane",
+      style: {
+        color: "#9a6700",
+        weight: 2,
+        fillColor: "#f2c94c",
+        fillOpacity: 0.18,
+      },
+      onEachFeature: logisticsFeature,
+      attribution: "SDES · Répertoire national des entrepôts",
+    }),
     sales: L.layerGroup(),
     traffic: L.geoJSON(
       LIVE.traffic?.features || { type: "FeatureCollection", features: [] },
@@ -238,6 +297,57 @@ if (printLineQuery) {
       document.write(report);
       document.close();
     }
+  });
+}
+function freightFeature(f, layer) {
+  const p = f.properties || {},
+    isPort = p.mode === "fluv",
+    name = p.raison_sociale?.trim() || p.nom || "Site de fret",
+    place = [p.commune, p.adresse].filter(Boolean).join(" · "),
+    status = p.utilisation_ite
+      ? `ITE ${p.utilisation_ite === "Oui" ? "utilisée" : "non utilisée"}`
+      : isPort
+        ? "Site fluvial"
+        : "Site ferroviaire";
+  layer.bindTooltip(
+    `<div class="tooltip-card"><b>${safeText(name)}</b><span><i>${isPort ? "Fleuve" : "Fret"}</i>${safeText(place || status)}</span></div>`,
+    { sticky: true, className: "mobility-tooltip", opacity: 1 },
+  );
+  layer.on("mouseover", () => layer.setStyle({ radius: isPort ? 9 : 8, weight: 3 }));
+  layer.on("mouseout", () => layer.setStyle({ radius: isPort ? 7 : 6, weight: 2 }));
+  layer.on("click", (event) => {
+    L.DomEvent.stopPropagation(event);
+    if (isPort) {
+      openDetail(
+        name,
+        "FRET FLUVIAL · AXE OISE",
+        "Site portuaire ou multimodal",
+        `<section class="summary"><h3>Fonction logistique</h3><p><b>Interface fleuve–route</b><br>Site identifié par la Région Île-de-France dans le référentiel des équipements multimodaux.</p></section><section class="summary"><h3>Navigation commerciale</h3><p>Le site est raccordé à l’axe navigable de l’Oise, maillon du bassin de la Seine. La couche localise l’équipement ; elle ne déduit aucun tonnage non publié.</p></section><section class="summary"><h3>Donnée</h3><p>Source : ${esc(p.source || "Région Île-de-France · SDRIF")}<br>Mode : fluvial</p></section>`,
+      );
+      return;
+    }
+    openDetail(
+      name,
+      "FRET FERROVIAIRE · ITE",
+      place || status,
+      `<section class="summary"><h3>État et utilisation</h3><p>Utilisation : <b>${esc(p.utilisation_ite || "non renseignée")}</b><br>État : ${esc(p.etat_ite || "non renseigné")}<br>Convention active : ${esc(p.convention_active || "non renseignée")}<br>Circulation récente : ${esc(p.circulation_recente || "non renseignée")}<br>Accessibilité : ${esc(p.accessibilite || "non renseignée")}</p></section><section class="summary"><h3>Activité marchandises</h3><p>Établissement : ${esc(p.type_etablissement || "non renseigné")}<br>Produit transporté : <b>${esc(p.produit_transporte || "non renseigné")}</b><br>Réception : ${esc(p.reception_marchandises || "non renseignée")} · Expédition : ${esc(p.expedie_marchandises || "non renseignée")}<br>Classe de tonnage : ${esc(p.classe_tonnage || "non renseignée")}<br>Fréquence des trains : ${esc(p.frequence_trains || "non renseignée")}</p></section><section class="summary"><h3>Infrastructure</h3><p>Nombre de voies : ${esc(p.nombre_de_voies || "non renseigné")}<br>Code ligne RFN : ${esc(p.code_ligne || "non renseigné")}</p></section><section class="summary"><h3>Donnée</h3><p>Source : Cerema · base ITE 3000 · millésime 2026.<br>Les champs vides sont explicitement signalés et ne sont pas estimés.</p></section>`,
+    );
+  });
+}
+function logisticsFeature(f, layer) {
+  const id = f.properties?.id_aire || "—";
+  layer.bindTooltip(
+    `<div class="tooltip-card"><b>Aire logistique ${safeText(id)}</b><span><i>Logistique</i>Entrepôts de 10 000 m² ou plus</span></div>`,
+    { sticky: true, className: "mobility-tooltip", opacity: 1 },
+  );
+  layer.on("click", (event) => {
+    L.DomEvent.stopPropagation(event);
+    openDetail(
+      `Aire logistique ${id}`,
+      "HUB LOGISTIQUE",
+      "Répertoire national SDES",
+      `<section class="summary"><h3>Périmètre</h3><p>Zone de concentration d’entrepôts et de plateformes logistiques couverts et fermés de <b>10 000 m² ou plus</b>.</p></section><section class="summary"><h3>Lecture territoriale</h3><p>Ce contour permet d’analyser la proximité des autoroutes, routes nationales, installations ferroviaires fret, ports fluviaux et bassins d’emploi.</p></section><section class="summary"><h3>Précaution statistique</h3><p>Les effectifs et surfaces détaillés peuvent être diffusés sous forme d’intervalles ou masqués par le secret statistique. Aucun établissement individuel n’est inventé à partir du contour.</p></section><section class="summary"><h3>Donnée</h3><p>Source : SDES · Répertoire national des entrepôts et plateformes logistiques · 2025/2026.</p></section>`,
+    );
   });
 }
 function roadFeature(f, layer) {

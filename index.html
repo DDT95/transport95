@@ -88,6 +88,12 @@
                   ><small>GTFS Île-de-France Mobilités</small></span
                 ><input type="checkbox" data-layer="stations" /></label
               ><label
+                ><i style="--c: #e1000f"></i
+                ><span
+                  ><b>Lignes RER & trains</b
+                  ><small>Tracés voyageurs · couleurs IDFM</small></span
+                ><input type="checkbox" data-layer="railRoutes" /></label
+              ><label
                 ><i style="--c: #000091"></i
                 ><span
                   ><b>Arrêts de bus</b
@@ -112,11 +118,23 @@
                   ><small>Sytadin · actualisation 5 min</small></span
                 ><input type="checkbox" data-layer="traffic" /></label
               ><label
-                ><i style="--c: #e1000f"></i
+                ><i style="--c: #7a1f5c"></i
                 ><span
-                  ><b>Lignes RER & trains</b
-                  ><small>Tracés voyageurs · couleurs IDFM</small></span
-                ><input type="checkbox" data-layer="railRoutes" /></label
+                  ><b>Sites ferroviaires fret</b
+                  ><small>ITE 3000 · état, usage, marchandises</small></span
+                ><input type="checkbox" data-layer="freightRail" /></label
+              ><label
+                ><i style="--c: #0078a8"></i
+                ><span
+                  ><b>Ports & fret fluvial</b
+                  ><small>Oise navigable · sites multimodaux</small></span
+                ><input type="checkbox" data-layer="riverFreight" /></label
+              ><label
+                ><i style="--c: #9a6700"></i
+                ><span
+                  ><b>Aires logistiques</b
+                  ><small>Entrepôts et plateformes ≥ 10 000 m²</small></span
+                ><input type="checkbox" data-layer="logistics" /></label
               ><label
                 ><i style="--c: #f28e2b"></i
                 ><span
@@ -134,8 +152,8 @@
             <section class="sources">
               <h2>Sources</h2>
               <p>
-                PAN transport · Île-de-France Mobilités · BD TOPO ·
-                Géoplateforme · Geovelo · Sytadin.
+                PAN transport · Île-de-France Mobilités · Cerema · SDES ·
+                Région Île-de-France · BD TOPO · Géoplateforme · Geovelo · Sytadin.
               </p>
             </section>
           </div>
@@ -173,10 +191,11 @@
     <script src="./roads95.js"></script>
     <script src="./cycle95.js"></script>
     <script src="./live95.js"></script>
+    <script src="./freight95.js"></script>
     <script src="./vendor/jspdf.umd.min.js"></script>
     <script src="./vendor/jspdf.plugin.autotable.min.js"></script>
     <script src="./prefet-logo-data.js"></script>
-    <script src="./app.js?v=20260728-1405"></script>
+    <script src="./app.js?v=20260728-1435"></script>
     <script src="./pdf-export.js?v=20260728-1405"></script>
   </body>
 </html>
