@@ -372,6 +372,66 @@ function futureTimes(times, limit = 4) {
   const next = times.filter((t) => t >= current).slice(0, limit);
   return next;
 }
+function normalizedStopName(name) {
+  return String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s*-\s*quai\s+[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+function scheduleSourceForRoute(id) {
+  const route = routes[id];
+  if (!route) return id;
+  if (route.stops.some((s) => stopsById[s.id]?.directions?.[id])) return id;
+  const wanted = new Set(route.stops.map((s) => normalizedStopName(s.name)));
+  const scores = new Map();
+  D.stops.forEach((stop) => {
+    const name = normalizedStopName(stop.name);
+    if (!wanted.has(name)) return;
+    Object.keys(stop.directions || {}).forEach((candidate) => {
+      if (candidate !== id)
+        scores.set(candidate, (scores.get(candidate) || new Set()).add(name));
+    });
+  });
+  const best = [...scores.entries()]
+    .map(([candidate, names]) => [candidate, names.size])
+    .filter(([, score]) => score >= Math.max(3, Math.ceil(wanted.size * 0.6)))
+    .sort((a, b) => b[1] - a[1])[0];
+  return best?.[0] || id;
+}
+function directionsForLineStop(stopName, scheduleId) {
+  const wanted = normalizedStopName(stopName),
+    grouped = {};
+  D.stops
+    .filter((stop) => normalizedStopName(stop.name) === wanted)
+    .forEach((stop) =>
+      Object.entries(stop.directions?.[scheduleId] || {}).forEach(
+        ([destination, times]) => {
+          grouped[destination] = [
+            ...new Set([...(grouped[destination] || []), ...times]),
+          ].sort();
+        },
+      ),
+    );
+  return grouped;
+}
+function displayedScheduleDirection(route, destination, isAlias) {
+  if (!isAlias) return directionLabel(route.id, destination);
+  const first = route.stops[0]?.name,
+    last = route.stops.at(-1)?.name,
+    firstDestination = (route.destinations || []).find((item) =>
+      normalizedStopName(item).includes(normalizedStopName(first)),
+    ),
+    lastDestination = (route.destinations || []).find((item) =>
+      normalizedStopName(item).includes(normalizedStopName(last)),
+    ),
+    incoming = normalizedStopName(destination);
+  return incoming.includes(normalizedStopName(first))
+    ? firstDestination || first
+    : lastDestination || last;
+}
 function directionsAtHub(h, id) {
   const grouped = {};
   h.stops.forEach((sid) => {
@@ -520,17 +580,23 @@ map.on("zoomend", () => {
 });
 function lineCard(id) {
   const r = routes[id],
-    dest = (r.destinations || []).join(" ↔ ") || r.long;
+    dest = (r.destinations || []).join(" ↔ ") || r.long,
+    scheduleId = scheduleSourceForRoute(id),
+    scheduleNote =
+      scheduleId !== id
+        ? '<p class="schedule-source-note">Horaires GTFS rattachés par correspondance d’arrêts au service sélectionné.</p>'
+        : "";
   const schedules = r.stops
     .map((s) => {
-      const stop = stopsById[s.id];
-      const directions = Object.entries(stop?.directions?.[id] || {}).filter(
+      const directions = Object.entries(
+        directionsForLineStop(s.name, scheduleId),
+      ).filter(
         ([destination]) => destination.toLowerCase() !== s.name.toLowerCase(),
       );
-      return `<div class="station-schedule"><button onclick='focusStop(${JSON.stringify(s.id)})'><b>${esc(s.name)}</b><span>Voir sur la carte ›</span></button>${directions.map(([destination, times]) => `<p><b>Vers ${esc(directionLabel(id, destination))}</b><span>${futureTimes(times).join(" · ") || "Service terminé"}</span></p>`).join("")}</div>`;
+      return `<div class="station-schedule"><button onclick='focusStop(${JSON.stringify(s.id)})'><b>${esc(s.name)}</b><span>Voir sur la carte ›</span></button>${directions.length ? directions.map(([destination, times]) => `<p><b>Vers ${esc(displayedScheduleDirection(r, destination, scheduleId !== id))}</b><span>${futureTimes(times).join(" · ") || "Service terminé"}</span></p>`).join("") : '<p class="no-passage">Aucun passage théorique à cet arrêt aujourd’hui.</p>'}</div>`;
     })
     .join("");
-  return `<section class="summary"><h3>Terminus et directions</h3><p>${esc(dest)}</p></section><section class="summary"><h3>Prochains départs</h3><p>Horaires théoriques GTFS dans les deux sens.</p><div class="line-schedules">${schedules}</div></section><section class="summary"><h3>Desserte dans le Val-d’Oise</h3><p>${r.stops.length} arrêts sur le tracé sélectionné.</p><div class="stop-sequence">${r.stops.map((s, i) => `<button onclick='focusStop(${JSON.stringify(s.id)})'><i></i><span><small>${String(i + 1).padStart(2, "0")}</small>${esc(s.name)}</span><b>›</b></button>`).join("")}</div></section><section class="summary"><h3>Données de service</h3><p>Horaires théoriques GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}.</p></section>`;
+  return `<section class="summary"><h3>Terminus et directions</h3><p>${esc(dest)}</p></section><section class="summary"><h3>Prochains départs</h3><p>Horaires théoriques GTFS dans les deux sens.</p>${scheduleNote}<div class="line-schedules">${schedules}</div></section><section class="summary"><h3>Desserte dans le Val-d’Oise</h3><p>${r.stops.length} arrêts sur le tracé sélectionné.</p><div class="stop-sequence">${r.stops.map((s, i) => `<button onclick='focusStop(${JSON.stringify(s.id)})'><i></i><span><small>${String(i + 1).padStart(2, "0")}</small>${esc(s.name)}</span><b>›</b></button>`).join("")}</div></section><section class="summary"><h3>Données de service</h3><p>Horaires théoriques GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}.</p></section>`;
 }
 function routeSubtitle(r) {
   return r.long && r.long !== r.short
@@ -587,7 +653,6 @@ function selectRoute(id) {
         },
       );
     });
-    map.fitBounds(layers.route.getBounds(), { padding: [40, 40] });
   }
   const matching = hubMarkers.filter((m) => m.hubData.routes.includes(id));
   layers.selectedStops.clearLayers();
@@ -624,6 +689,16 @@ function selectRoute(id) {
   });
   document.querySelector("#line-result").textContent =
     `${matching.length} zones desservies · ${r.destinations?.join(" / ") || ""}`;
+  if (layers.route) {
+    const mapWidth = map.getSize().x,
+      rightClearance = Math.min(drawer.offsetWidth + 32, mapWidth * 0.45);
+    map.fitBounds(layers.route.getBounds(), {
+      paddingTopLeft: [48, 48],
+      paddingBottomRight: [rightClearance, 48],
+      maxZoom: 14,
+      animate: true,
+    });
+  }
 }
 window.selectRoute = selectRoute;
 Object.entries(routes).forEach(([id, r]) => {
@@ -651,7 +726,9 @@ Object.entries(routes).forEach(([id, r]) => {
   });
   line.addTo(layers.busRoutes);
 });
+let lineSearchTimer;
 document.querySelector("#line-filter").oninput = (e) => {
+  clearTimeout(lineSearchTimer);
   const q = e.target.value.trim().toLowerCase(),
     ids = Object.keys(routes).filter((id) =>
       `${routes[id].short} ${routes[id].long}`.toLowerCase().includes(q),
@@ -671,11 +748,18 @@ document.querySelector("#line-filter").oninput = (e) => {
     return;
   }
   if (ids.length) {
-    selectRoute(ids[0]);
+    const exact = ids.find(
+      (id) =>
+        routes[id].short.toLowerCase() === q || routes[id].long.toLowerCase() === q,
+    );
     document.querySelector("#line-result").textContent =
-      ids.length === 1
-        ? `${routes[ids[0]].long}`
+      exact || ids.length === 1
+        ? `${routes[exact || ids[0]].long}`
         : `${ids.length} lignes correspondantes`;
+    lineSearchTimer = setTimeout(() => {
+      if (exact || (ids.length === 1 && q.length >= 2))
+        selectRoute(exact || ids[0]);
+    }, 280);
   } else
     document.querySelector("#line-result").textContent = "Aucune ligne trouvée";
 };
