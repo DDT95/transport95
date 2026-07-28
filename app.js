@@ -19,22 +19,23 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 function roadColor(p) {
   const n = p.numero || "";
   return n.startsWith("A")
-    ? "#e1000f"
+    ? "#0053b3"
     : n.startsWith("N")
-      ? "#f28e2b"
+      ? "#e1000f"
       : n.startsWith("D")
-        ? "#d6a600"
+        ? "#e8a000"
         : "#aab4c3";
 }
 function roadStyle(feature) {
   const p = feature.properties || {},
     number = p.numero || "",
-    major = number.startsWith("A") || number.startsWith("N"),
+    motorway = number.startsWith("A"),
+    national = number.startsWith("N"),
     departmental = number.startsWith("D");
   return {
     color: roadColor(p),
-    weight: major ? 4.5 : departmental ? 2.2 : 0.8,
-    opacity: major ? 0.92 : departmental ? 0.72 : 0.18,
+    weight: motorway ? 5.5 : national ? 4.2 : departmental ? 2.1 : 0.8,
+    opacity: motorway ? 1 : national ? 0.95 : departmental ? 0.7 : 0.16,
   };
 }
 function cycleColor(p) {
