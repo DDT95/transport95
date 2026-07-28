@@ -6,6 +6,12 @@
   padding: 10px 0;
   border-bottom: 1px solid #eceff4;
 }
+
+/* Leaflet gives focused SVG paths a rectangular browser outline. The
+   selected geometry already carries its own cartographic highlight. */
+.leaflet-container path.leaflet-interactive:focus {
+  outline: none;
+}
 .service-row:last-child {
   border-bottom: 0;
 }
