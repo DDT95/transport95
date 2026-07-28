@@ -10,13 +10,24 @@
       .toLowerCase();
 
   function logoData() {
+    if (window.PREFET_LOGO_DATA) {
+      return {
+        data: window.PREFET_LOGO_DATA,
+        ratio: window.PREFET_LOGO_RATIO || 2573 / 1819,
+      };
+    }
     const image = document.querySelector(".brand-logo");
     if (!image?.complete || !image.naturalWidth) return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    canvas.getContext("2d").drawImage(image, 0, 0);
-    return { data: canvas.toDataURL("image/png"), ratio: image.naturalWidth / image.naturalHeight };
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext("2d").drawImage(image, 0, 0);
+      return { data: canvas.toDataURL("image/png"), ratio: image.naturalWidth / image.naturalHeight };
+    } catch (error) {
+      console.warn("Logo PDF indisponible", error);
+      return null;
+    }
   }
 
   function drawIcon(doc, x, y, kind, color = BLUE) {
