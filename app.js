@@ -24,7 +24,18 @@ function roadColor(p) {
       ? "#f28e2b"
       : n.startsWith("D")
         ? "#d6a600"
-        : "#667085";
+        : "#aab4c3";
+}
+function roadStyle(feature) {
+  const p = feature.properties || {},
+    number = p.numero || "",
+    major = number.startsWith("A") || number.startsWith("N"),
+    departmental = number.startsWith("D");
+  return {
+    color: roadColor(p),
+    weight: major ? 4.5 : departmental ? 2.2 : 0.8,
+    opacity: major ? 0.92 : departmental ? 0.72 : 0.18,
+  };
 }
 function cycleColor(p) {
   const a = `${p.ame_d || ""} ${p.ame_g || ""}`;
@@ -117,11 +128,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
       window.ROADS95 || { type: "FeatureCollection", features: [] },
       {
         pane: "roadsPane",
-        style: (f) => ({
-          color: roadColor(f.properties),
-          weight: (f.properties.numero || "").startsWith("A") ? 4 : 3,
-          opacity: 0.88,
-        }),
+        style: roadStyle,
         onEachFeature: roadFeature,
         attribution: "BD TOPO · IGN",
       },
