@@ -366,6 +366,52 @@
   filter: invert(13%) sepia(19%) saturate(1133%) hue-rotate(169deg)
     brightness(91%);
 }
+.layer-symbol {
+  display: grid;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.layer-symbol.electric {
+  background: #1f8b4c;
+}
+.layer-symbol.carpool {
+  background: #0078a8;
+}
+.shared-marker {
+  background: transparent;
+  border: 0;
+}
+.shared-marker span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: var(--service-color);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 3px 12px #07143d55;
+  transition: transform 0.16s ease;
+}
+.shared-marker.compact span {
+  width: 9px;
+  height: 9px;
+  border-width: 1.5px;
+  border-radius: 50%;
+  color: transparent;
+  font-size: 0;
+}
+.shared-marker:hover span {
+  transform: translateY(-2px) scale(1.1);
+}
 .sale-marker {
   background: transparent;
   border: 0;

@@ -11,6 +11,8 @@ map.createPane("trafficPane");
 map.getPane("trafficPane").style.zIndex = 355;
 map.createPane("freightPane");
 map.getPane("freightPane").style.zIndex = 365;
+map.createPane("sharedPane");
+map.getPane("sharedPane").style.zIndex = 370;
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -57,6 +59,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     areas: { type: "FeatureCollection", features: [] },
     multimodal: { type: "FeatureCollection", features: [] },
   },
+  SHARED = window.SHARED_MOBILITY95 || { charging: [], carpooling: [] },
   routes = D.routes,
   stopsById = Object.fromEntries(D.stops.map((s) => [s.id, s])),
   layers = {
@@ -118,6 +121,8 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
       attribution: "SDES · Répertoire national des entrepôts",
     }),
     sales: L.layerGroup(),
+    charging: createSharedLayer(SHARED.charging, "charging"),
+    carpooling: createSharedLayer(SHARED.carpooling, "carpooling"),
     traffic: L.geoJSON(
       LIVE.traffic?.features || { type: "FeatureCollection", features: [] },
       {
@@ -272,7 +277,7 @@ function buildPrintReportHtml() {
 @page{size:A4;margin:14mm 14mm 16mm}*{box-sizing:border-box}body{margin:0;color:#161636;font-family:Arial,sans-serif;font-size:9.5pt;line-height:1.42}header{display:grid;grid-template-columns:31mm 1fr;gap:9mm;align-items:center;border-bottom:3px solid #000091;padding-bottom:6mm;margin-bottom:7mm}header img{width:30mm;max-height:25mm;object-fit:contain;object-position:left center}.kicker{color:#000091;font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.report-title{font-size:22pt;line-height:1.05;margin:2mm 0;color:#070047}.subtitle{color:#5d6578;font-size:10pt}.identity{border-left:5px solid ${accent};background:#f5f6fb;padding:5mm 6mm;margin-bottom:6mm;break-inside:avoid}.identity small{font-weight:700;color:#000091;letter-spacing:.1em}.identity h1{font-size:24pt;margin:1.5mm 0 1mm;color:#070047}.identity p{margin:0;color:#5d6578}.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin:0 0 7mm;break-inside:avoid}.fact{border:1px solid #d8deea;border-radius:3mm;padding:3.5mm}.fact b{display:block;color:#000091;font-size:15pt}.fact span{color:#687083;font-size:7.5pt}.report-map,.summary{border:1px solid #d8deea;border-radius:3mm;padding:5mm;margin:0 0 5mm}.report-map{break-inside:avoid}.report-map h2,.summary h3{margin:0 0 3mm;color:#070047;font-size:13pt}.report-map svg{display:block;width:100%;height:54mm;background:#f4f6fa;border-radius:2mm}.report-map p{color:#687083;font-size:7.5pt;margin:2mm 0 0}.summary p{margin:2mm 0}.route-list{display:flex;flex-wrap:wrap;gap:2mm}.route-chip{display:inline-block;padding:1.5mm 2.5mm;border-radius:2mm;border:1px solid #d8deea;font-weight:700}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}.metric{background:#f4f6fa;border-radius:2mm;padding:3mm;text-align:center}.metric b{display:block;color:#000091;font-size:15pt}.service-row,.station-schedule{border-bottom:1px solid #e5e8ef;padding:2.5mm 0;break-inside:avoid}.station-schedule{display:grid;grid-template-columns:55mm 1fr;column-gap:5mm}.station-schedule>div:first-child{grid-column:1;grid-row:1/span 8;font-weight:700}.station-schedule p{grid-column:2;display:grid;grid-template-columns:1fr auto;gap:3mm;margin:1mm 0}.station-schedule p span{color:#000091;font-weight:700;text-align:right}.stop-sequence>div{display:flex;align-items:center;border-bottom:1px solid #e5e8ef;padding:2.2mm 0;break-inside:avoid}.stop-sequence span{display:flex;gap:3mm}.stop-sequence small{color:#7b8292}.iso-card,.nearest-card{break-inside:avoid}.sources{border-top:1px solid #ccd3df;margin-top:7mm;padding-top:4mm;color:#596174;font-size:8pt}.sources h2{font-size:10pt;color:#070047}.footer{position:fixed;left:14mm;right:14mm;bottom:5mm;display:flex;justify-content:space-between;color:#707789;font-size:7pt}.no-print,a{color:#000091}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @page{margin-bottom:24mm}
 .footer{position:static;margin-top:7mm;padding-top:3mm;border-top:1px solid #ccd3df}
-</style></head><body><header><img src="${logo}" alt="Préfet du Val-d’Oise"><div><div class="kicker">Mobilités · Val-d’Oise</div><div class="report-title">Observatoire des transports</div><div class="subtitle">Synthèse de connaissance territoriale</div></div></header><section class="identity"><small>${esc(currentDetail.type)}</small><h1>${esc(currentDetail.title)}</h1><p>${esc(currentDetail.sub)}</p></section><section class="facts"><div class="fact"><b>${Object.keys(routes).length}</b><span>lignes IDFM recensées</span></div><div class="fact"><b>${D.hubs.length}</b><span>zones et pôles de transport</span></div><div class="fact"><b>${LIVE.sales?.points?.length || 0}</b><span>points de vente</span></div><div class="fact"><b>184</b><span>communes du Val-d’Oise</span></div></section>${routeSchematic()}<main>${printableDetailHtml()}</main><section class="sources"><h2>Sources, périmètre et fraîcheur</h2><p><b>Transports :</b> Île-de-France Mobilités, données GTFS théoriques datées du ${sourceDate}. <b>Infrastructures :</b> IGN - BD TOPO et Géoplateforme. <b>Mobilités cyclables :</b> Base nationale des aménagements cyclables et Geovelo. <b>Circulation :</b> Sytadin / DIRIF, dernière actualisation disponible : ${liveUpdated}.</p><p>Les horaires sont théoriques sauf mention contraire. Cette fiche restitue les données ouvertes disponibles au moment de l’édition et ne remplace pas l’information voyageurs en temps réel.</p><p><b>Édition :</b> ${issued} · DDT du Val-d’Oise · transport.data.gouv.fr · data.gouv.fr</p></section><div class="footer"><span>Observatoire des transports du Val-d’Oise</span><span>${esc(currentDetail.title)} · ${issued}</span></div></body></html>`;
+</style></head><body><header><img src="${logo}" alt="Préfet du Val-d’Oise"><div><div class="kicker">Mobilités · Val-d’Oise</div><div class="report-title">Observatoire des transports</div><div class="subtitle">Synthèse de connaissance territoriale</div></div></header><section class="identity"><small>${esc(currentDetail.type)}</small><h1>${esc(currentDetail.title)}</h1><p>${esc(currentDetail.sub)}</p></section><section class="facts"><div class="fact"><b>${Object.keys(routes).length}</b><span>lignes IDFM recensées</span></div><div class="fact"><b>${D.hubs.length}</b><span>zones et pôles de transport</span></div><div class="fact"><b>${SHARED.charging.length}</b><span>stations de recharge</span></div><div class="fact"><b>184</b><span>communes du Val-d’Oise</span></div></section>${routeSchematic()}<main>${printableDetailHtml()}</main><section class="sources"><h2>Sources, périmètre et fraîcheur</h2><p><b>Transports :</b> Île-de-France Mobilités, données GTFS théoriques datées du ${sourceDate}. <b>Infrastructures :</b> IGN - BD TOPO et Géoplateforme. <b>Mobilités partagées :</b> Base nationale IRVE et Base nationale des lieux de covoiturage. <b>Mobilités cyclables :</b> Base nationale des aménagements cyclables et Geovelo. <b>Circulation :</b> Sytadin / DIRIF, dernière actualisation disponible : ${liveUpdated}.</p><p>Les horaires sont théoriques sauf mention contraire. Cette fiche restitue les données ouvertes disponibles au moment de l’édition et ne remplace pas l’information voyageurs en temps réel.</p><p><b>Édition :</b> ${issued} · DDT du Val-d’Oise · transport.data.gouv.fr · data.gouv.fr</p></section><div class="footer"><span>Observatoire des transports du Val-d’Oise</span><span>${esc(currentDetail.title)} · ${issued}</span></div></body></html>`;
   return report;
 }
 window.buildPrintReportHtml = buildPrintReportHtml;
@@ -359,6 +364,65 @@ function logisticsFeature(f, layer) {
       `<section class="summary"><h3>Périmètre</h3><p>Zone de concentration d’entrepôts et de plateformes logistiques couverts et fermés de <b>10 000 m² ou plus</b>.</p></section><section class="summary"><h3>Lecture territoriale</h3><p>Ce contour permet d’analyser la proximité des autoroutes, routes nationales, installations ferroviaires fret, ports fluviaux et bassins d’emploi.</p></section><section class="summary"><h3>Précaution statistique</h3><p>Les effectifs et surfaces détaillés peuvent être diffusés sous forme d’intervalles ou masqués par le secret statistique. Aucun établissement individuel n’est inventé à partir du contour.</p></section><section class="summary"><h3>Donnée</h3><p>Source : SDES · Répertoire national des entrepôts et plateformes logistiques · 2025/2026.</p></section>`,
     );
   });
+}
+function sharedMobilityIcon(type) {
+  const charging = type === "charging",
+    compact = map.getZoom() < 12,
+    color = charging ? "#1f8b4c" : "#0078a8";
+  return L.divIcon({
+    className: `shared-marker${compact ? " compact" : ""}`,
+    html: `<span style="--service-color:${color}">${charging ? "⚡" : "2+"}</span>`,
+    iconSize: compact ? [9, 9] : [24, 24],
+    iconAnchor: compact ? [4.5, 4.5] : [12, 12],
+  });
+}
+function createSharedLayer(items, type) {
+  const group = L.layerGroup();
+  items.forEach((item) => {
+    const charging = type === "charging";
+    const marker = L.marker([item.lat, item.lon], {
+      pane: "sharedPane",
+      icon: sharedMobilityIcon(type),
+      bubblingMouseEvents: false,
+    });
+    marker.serviceType = type;
+    marker.serviceData = item;
+    marker.bindTooltip(
+      `<div class="tooltip-card"><b>${safeText(item.name)}</b><span><i>${charging ? "Recharge électrique" : safeText(item.type || "Covoiturage")}</i>${charging ? `${item.points} point(s) · ${item.max_power || "—"} kW` : `${item.spaces || "—"} place(s) · ${safeText(item.commune)}`}</span></div>`,
+      { sticky: true, className: "mobility-tooltip", opacity: 1 },
+    );
+    marker.on("click", (event) => {
+      L.DomEvent.stopPropagation(event);
+      if (charging) openChargingDetail(item);
+      else openCarpoolDetail(item);
+    });
+    marker.addTo(group);
+  });
+  return group;
+}
+function yesNo(value) {
+  return value ? "Oui" : "Non";
+}
+function openChargingDetail(item) {
+  const payment = [
+    item.free ? "Recharge gratuite" : null,
+    item.payment_card ? "Carte bancaire" : null,
+    item.payment_act ? "Paiement à l’acte" : null,
+  ].filter(Boolean).join(" · ") || "Modalités non renseignées";
+  openDetail(
+    item.name,
+    "RECHARGE ÉLECTRIQUE",
+    `${item.points} point(s) de recharge · jusqu’à ${item.max_power || "—"} kW`,
+    `<section class="summary"><h3>Station</h3><p><b>${esc(item.brand || item.operator || "Enseigne non renseignée")}</b><br>${esc(item.address || "Adresse non renseignée")}<br>${esc(item.commune || "Commune non renseignée")}</p></section><section class="summary"><h3>Recharge</h3><p><b>${esc(item.points)} point(s)</b> · puissance maximale ${esc(item.max_power || "non renseignée")} kW<br>Connecteurs : ${esc(item.plugs?.join(" · ") || "non renseignés")}<br>Implantation : ${esc(item.implantation || "non renseignée")}</p></section><section class="summary"><h3>Accès et paiement</h3><p>${esc(payment)}<br>Accès : ${esc(item.access || "non renseigné")}<br>Horaires : <b>${esc(item.hours || "non renseignés")}</b><br>PMR : ${esc(item.pmr || "non renseigné")} · réservation : ${yesNo(item.reservation)}</p></section><section class="summary"><h3>Exploitant et donnée</h3><p>Opérateur : <b>${esc(item.operator || "non renseigné")}</b><br>Identifiant station : ${esc(item.id)}<br>Mise à jour : ${esc(item.updated || "non renseignée")}<br>Source : Base nationale IRVE · data.gouv.fr / PAN transport.</p></section>`,
+  );
+}
+function openCarpoolDetail(item) {
+  openDetail(
+    item.name,
+    "COVOITURAGE",
+    `${item.type || "Lieu de rencontre"} · ${item.commune || "Val-d’Oise"}`,
+    `<section class="summary"><h3>Lieu</h3><p><b>${esc(item.type || "Lieu de covoiturage")}</b><br>${esc(item.address || "Adresse non renseignée")}<br>${esc(item.commune || "Commune non renseignée")}</p></section><section class="summary"><h3>Stationnement</h3><p>Places : <b>${esc(item.spaces || "non renseigné")}</b><br>Places PMR : ${esc(item.pmr_spaces || "non renseigné")}<br>Durée autorisée : ${esc(item.duration || "non renseignée")}<br>Éclairage : ${esc(item.lighting || "non renseigné")}</p></section><section class="summary"><h3>Accès et donnée</h3><p>Horaires : ${esc(item.hours || "non renseignés")}<br>Propriétaire : ${esc(item.owner || "non renseigné")}<br>Mise à jour : ${esc(item.updated || "non renseignée")}<br>Source : Base nationale des lieux de covoiturage · PAN transport.</p></section>`,
+  );
 }
 function roadFeature(f, layer) {
   const p = f.properties;
@@ -800,6 +864,9 @@ function refreshBusStops() {
 map.on("zoomend", () => {
   hubMarkers.forEach((marker) => marker.setIcon(hubIcon(marker.hubData)));
   salesMarkers.forEach((marker) => marker.setIcon(saleIcon()));
+  [layers.charging, layers.carpooling].forEach((group) =>
+    group.eachLayer((marker) => marker.setIcon(sharedMobilityIcon(marker.serviceType))),
+  );
   const toggle = document.querySelector('[data-layer="stops"]');
   if (!toggle?.checked) return;
   refreshBusStops();
