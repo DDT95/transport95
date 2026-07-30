@@ -1120,6 +1120,7 @@ if (C) {
   })
     .addTo(map)
     .getBounds();
+  if (b.isValid()) map.fitBounds(b, { padding: [24, 24], animate: false });
   document.querySelector("#home").onclick = () =>
     map.fitBounds(b, { padding: [24, 24] });
 }
