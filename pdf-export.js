@@ -113,7 +113,7 @@
   function addPageHeader(doc, logo, pageTitle) {
     if (logo) { const h = 18; doc.addImage(logo.data, "PNG", 14, 8, h * logo.ratio, h, undefined, "FAST"); }
     doc.setTextColor(...BLUE); doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.text("MOBILITÉS · VAL-D’OISE", 61, 12);
-    doc.setTextColor(...DEEP); doc.setFontSize(15); doc.text("Observatoire des transports", 61, 19);
+    doc.setTextColor(...DEEP); doc.setFontSize(15); doc.text("Mobilités et transports", 61, 19);
     doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.text(pageTitle, 61, 24);
     doc.setDrawColor(...BLUE); doc.setLineWidth(0.8); doc.line(14, 30, 196, 30);
   }
@@ -160,7 +160,7 @@
     const lineColor = route.color || "000091", rgb = lineColor.match(/.{2}/g).map((v) => parseInt(v, 16)), textRgb = (route.text || "FFFFFF").match(/.{2}/g).map((v) => parseInt(v, 16));
     if (logo) { const h = 18; doc.addImage(logo.data, "PNG", 14, 9, h * logo.ratio, h, undefined, "FAST"); }
     doc.setTextColor(...BLUE); doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.text("MOBILITÉS · VAL-D’OISE", 58, 13);
-    doc.setTextColor(...DEEP); doc.setFontSize(15); doc.text("Observatoire des transports", 58, 20);
+    doc.setTextColor(...DEEP); doc.setFontSize(15); doc.text("Mobilités et transports", 58, 20);
     doc.setTextColor(...MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.text("Fiche de connaissance territoriale", 58, 25);
     doc.setFillColor(...DEEP); doc.roundedRect(14, 34, 182, 34, 3, 3, "F");
     doc.setFillColor(...rgb); doc.roundedRect(20, 42, 30, 18, 4, 4, "F"); doc.setTextColor(...textRgb); doc.setFont("helvetica", "bold"); doc.setFontSize(route.short.length > 4 ? 12 : 17); doc.text(route.short, 35, 53.5, { align: "center" });
@@ -220,7 +220,7 @@
     const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true }), logo = logoData(), route = selectedRoute();
     if (route) addLineContent(doc, logo, route); else addGenericContent(doc, logo);
     addFooters(doc, currentDetail.title);
-    doc.setProperties({ title: `Synthèse territoriale - ${currentDetail.title}`, subject: "Observatoire des transports du Val-d’Oise", author: "DDT du Val-d’Oise", creator: "Observatoire des transports" });
+    doc.setProperties({ title: `Synthèse territoriale - ${currentDetail.title}`, subject: "Mobilités et transports du Val-d’Oise", author: "DDT du Val-d’Oise", creator: "DDT du Val-d’Oise – Pôle géomatique" });
     return doc;
   }
 
