@@ -29,14 +29,47 @@ def fetch(url):
     raise error
 
 
+def fetch_xml(url, attempts=5):
+    """Fetch and parse XML, retrying on transport errors AND malformed
+    responses (Sytadin occasionally serves a truncated/corrupt payload
+    even on a 200 OK, which a plain network retry wouldn't catch)."""
+    error = None
+    for attempt in range(attempts):
+        try:
+            return ET.fromstring(fetch(url))
+        except ET.ParseError as exc:
+            error = exc
+            if attempt < attempts - 1:
+                time.sleep(2 * (attempt + 1))
+    raise error
+
+
 def text(node, path, default=""):
     child = node.find(path)
     return (child.text or "").strip() if child is not None else default
 
 
+PREVIOUS_SNAPSHOT = None
+_live_path = ROOT / "live95.js"
+if _live_path.exists():
+    _live_text = _live_path.read_text()
+    _prefix = "window.LIVE95="
+    if _live_text.startswith(_prefix):
+        try:
+            PREVIOUS_SNAPSHOT = json.loads(_live_text[len(_prefix):].rstrip("\n;"))
+        except json.JSONDecodeError:
+            PREVIOUS_SNAPSHOT = None
+
 network = json.loads((ROOT / "traffic-network95.json").read_text())
-segment_xml = ET.fromstring(fetch(f"{SYTADIN}/segments_dyn.xml"))
-event_xml = ET.fromstring(fetch(f"{SYTADIN}/evenements.xml"))
+try:
+    segment_xml = fetch_xml(f"{SYTADIN}/segments_dyn.xml")
+    event_xml = fetch_xml(f"{SYTADIN}/evenements.xml")
+    sytadin_ok = True
+except Exception as exc:
+    print(f"Avertissement : flux Sytadin indisponible/mal formé ({exc}), conservation des dernières données trafic connues.")
+    segment_xml = ET.Element("root")
+    event_xml = ET.Element("root")
+    sytadin_ok = False
 
 states = {}
 for segment in segment_xml.findall(".//SegmentDynamique"):
@@ -113,11 +146,21 @@ while True:
     if offset >= page.get("total_count", 0) or not page.get("results"):
         break
 
-snapshot = {
-    "traffic": {
+if sytadin_ok:
+    traffic = {
         "updated": segment_xml.attrib.get("DateDiffusion"), "source": "Sytadin · DIRIF",
         "features": {"type": "FeatureCollection", "features": traffic_features},
-    },
+    }
+elif PREVIOUS_SNAPSHOT and "traffic" in PREVIOUS_SNAPSHOT:
+    traffic = PREVIOUS_SNAPSHOT["traffic"]
+else:
+    traffic = {
+        "updated": None, "source": "Sytadin · DIRIF",
+        "features": {"type": "FeatureCollection", "features": []},
+    }
+
+snapshot = {
+    "traffic": traffic,
     "sales": {
         "updated": "2026-06-04", "source": "Île-de-France Mobilités · PRIM", "points": sales,
     },
@@ -129,4 +172,6 @@ snapshot = {
 (ROOT / "live95.js").write_text(
     "window.LIVE95=" + json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")) + ";\n"
 )
-print(f"{len(traffic_features)} tronçons Sytadin · {len(sales)} points de vente")
+traffic_count = len(traffic_features) if sytadin_ok else len(traffic["features"]["features"])
+traffic_note = "" if sytadin_ok else " (données précédentes conservées)"
+print(f"{traffic_count} tronçons Sytadin{traffic_note} · {len(sales)} points de vente")
