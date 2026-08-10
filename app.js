@@ -1438,6 +1438,46 @@ document.querySelector("#search-form").onsubmit = async (e) => {
     return communes;
   }
 
+  function haversineKm(a, b) {
+    const R = 6371, toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(b[1] - a[1]), dLon = toRad(b[0] - a[0]);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+  function lineKm(coords) {
+    let d = 0;
+    for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i - 1], coords[i]);
+    return d;
+  }
+
+  let infraStats = null;
+  function computeInfraStats() {
+    if (infraStats) return infraStats;
+    const roadsByClass = {};
+    (window.ROADS95?.features || []).forEach((f) => {
+      const cls = f.properties.classement || "Non classée";
+      roadsByClass[cls] = (roadsByClass[cls] || 0) + lineKm(f.geometry.coordinates);
+    });
+    const cycleKm = (window.CYCLE95?.features || []).reduce((s, f) => s + lineKm(f.geometry.coordinates), 0);
+    const trafficFeatures = LIVE.traffic?.features?.features || [];
+    const trafficStates = {};
+    trafficFeatures.forEach((f) => {
+      const st = f.properties.state || "Non renseigné";
+      trafficStates[st] = (trafficStates[st] || 0) + 1;
+    });
+    infraStats = {
+      roadsByClass,
+      cycleKm,
+      trafficStates,
+      trafficTotal: trafficFeatures.length,
+      trafficUpdated: LIVE.traffic?.updated,
+      freightRail: FREIGHT.ite.features.length,
+      freightMultimodal: FREIGHT.multimodal.features.length,
+      logisticsAreas: FREIGHT.areas.features.length,
+    };
+    return infraStats;
+  }
+
   function renderDashboard() {
     const routeList = Object.values(routes);
     const railRoutes = routeList.filter((r) => isRailRoute(r.id));
@@ -1467,6 +1507,33 @@ document.querySelector("#search-form").onsubmit = async (e) => {
       ? `<p style="margin-top:10px;color:#a14b24;font-weight:700">${unserved} commune${unserved > 1 ? "s" : ""} du Val-d’Oise sans arrêt recensé dans le référentiel GTFS.</p>`
       : "";
 
+    const infra = computeInfraStats();
+    const roadOrder = ["Autoroute", "Nationale", "Départementale", "Route nommée", "Route intercommunale"];
+    const roadEntries = roadOrder.filter((k) => infra.roadsByClass[k]).map((k) => [k, infra.roadsByClass[k]]);
+    const maxRoadKm = Math.max(...roadEntries.map(([, km]) => km), 1);
+    const roadRows = roadEntries.map(([label, km]) => bar(label, Math.round(km), maxRoadKm, "km")).join("");
+
+    const stateColors = { Fluide: "#18753c", Dense: "#e07a2f", Bouchon: "#c65f52" };
+    const stateOrder = Object.keys(infra.trafficStates).sort((a, b) => infra.trafficStates[b] - infra.trafficStates[a]);
+    let cursor = 0;
+    const trafficSegments = stateOrder
+      .map((st) => {
+        const p = infra.trafficTotal ? (infra.trafficStates[st] / infra.trafficTotal) * 100 : 0;
+        const seg = `${stateColors[st] || "#94a3b8"} ${cursor}% ${cursor + p}%`;
+        cursor += p;
+        return seg;
+      })
+      .join(", ");
+    const trafficLegend = stateOrder
+      .map(
+        (st) =>
+          `<div><i style="--swatch:${stateColors[st] || "#94a3b8"}"></i><span>${esc(st)}</span><b>${infra.trafficStates[st]}</b></div>`,
+      )
+      .join("");
+    const trafficTime = infra.trafficUpdated
+      ? new Date(infra.trafficUpdated).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : null;
+
     content.innerHTML = `
       <div class="dialog-header">
         <span class="eyebrow">VAL-D’OISE · LECTURE TERRITORIALE</span>
@@ -1494,6 +1561,25 @@ document.querySelector("#search-form").onsubmit = async (e) => {
         <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Arrêt ≠ fréquence</h3><p>Chaque arrêt GTFS est rattaché à sa commune par géolocalisation dans les contours IGN. Ce comptage mesure la présence d’un point d’arrêt, pas la fréquence de passage ni l’amplitude horaire : une commune peut avoir un seul arrêt desservi deux fois par jour.</p>${unservedNote}</article>
         <article class="chart-card"><h3>Communes les mieux desservies</h3><p>Nombre d’arrêts recensés sur le territoire communal</p>${topRows}</article>
         <article class="chart-card"><h3>Communes les moins desservies</h3><p>Parmi celles ayant au moins un arrêt</p>${leastRows}</article>
+      </div>
+
+      <h3 style="margin:26px 2px 12px;color:var(--navy);font-size:16px">Infrastructures, fret et mobilités actives</h3>
+      <div class="dashboard-kpis">
+        <article><small>RÉSEAU CYCLABLE</small><strong>${fmt(Math.round(infra.cycleKm))} km</strong><span>aménagements en service (Geovelo)</span></article>
+        <article><small>SITES FERROVIAIRES FRET</small><strong>${infra.freightRail}</strong><span>ITE 3000 · Région Île-de-France</span></article>
+        <article><small>SITES MULTIMODAUX</small><strong>${infra.freightMultimodal}</strong><span>fluvial, ferroviaire, portuaire</span></article>
+        <article><small>AIRES LOGISTIQUES</small><strong>${infra.logisticsAreas}</strong><span>entrepôts et plateformes ≥ 1 ha</span></article>
+      </div>
+      <div class="dashboard-grid">
+        <article class="chart-card"><h3>Réseau routier par catégorie</h3><p>Longueur cumulée (BD TOPO IGN)</p>${roadRows}</article>
+        <article class="chart-card visual-card">
+          <h3>Trafic Sytadin en direct</h3>
+          <div class="donut-layout">
+            <div class="donut" style="--segments:${trafficSegments}"><div><strong>${infra.trafficTotal}</strong><span>tronçons</span></div></div>
+            <div class="chart-legend">${trafficLegend}</div>
+          </div>
+        </article>
+        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Deux échelles de temps</h3><p>Le réseau routier et cyclable décrit l’infrastructure existante (photographie BD TOPO/Geovelo). Le trafic Sytadin, lui, change en continu${trafficTime ? ` — dernière actualisation à ${trafficTime}` : ""} : ce n’est pas une moyenne mais l’état des ${infra.trafficTotal} tronçons surveillés au moment de l’ouverture de cette fiche.</p></article>
       </div>
     `;
   }
