@@ -15,3 +15,6 @@
 .project-row input:checked{background:var(--blue)}
 .project-row input:checked:after{transform:translateX(16px)}
 .project-line-label{background:#fff;border:1px solid var(--line);border-radius:8px;padding:3px 7px;font-size:10px;font-weight:700;box-shadow:0 3px 10px #0f172a1a;white-space:nowrap}
+.theme-heading{display:flex;justify-content:space-between;align-items:center;padding:9px 3px;border-top:1px solid #edf0f5}
+.theme-heading span{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted)}
+.theme-heading button{border:0;background:transparent;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;padding:0}

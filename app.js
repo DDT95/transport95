@@ -1063,6 +1063,14 @@ document.querySelectorAll("[data-layer]").forEach(
         : map.removeLayer(layers[i.dataset.layer]);
     }),
 );
+document.querySelector("#clearLayers").onclick = () => {
+  document.querySelectorAll("[data-layer]").forEach((i) => {
+    if (i.checked) {
+      i.checked = false;
+      i.dispatchEvent(new Event("change"));
+    }
+  });
+};
 document.querySelector("#progress").style.width = "100%";
 document.querySelector("#live-dot").classList.add("ok");
 if (LIVE.traffic?.updated) {
@@ -1319,6 +1327,10 @@ document.querySelector("#search-form").onsubmit = async (e) => {
         `<div class="tooltip-card route"><b>${esc(p.name)}</b><span>${esc(p.statusLabel)} · ${isReal ? "tracé réel (ligne existante)" : "tracé schématique"}</span></div>`,
         { sticky: true, className: "mobility-tooltip", opacity: 1 },
       );
+      line.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        openDetail(p.name, "PROJET D’INFRASTRUCTURE", `${p.statusLabel} · ${p.horizon}`, projectDetailHtml(p));
+      });
       line.addTo(group);
     });
     const endpoints = isReal
@@ -1362,14 +1374,8 @@ document.querySelector("#search-form").onsubmit = async (e) => {
   list.querySelectorAll(".project-row input[type=checkbox]").forEach((input) => {
     input.onchange = () => {
       const id = input.closest(".project-row").dataset.project;
-      const p = PROJECTS.find((x) => x.id === id);
       const group = projectLayers[id];
-      if (input.checked) {
-        group.addTo(map);
-        openDetail(p.name, "PROJET D’INFRASTRUCTURE", `${p.statusLabel} · ${p.horizon}`, projectDetailHtml(p));
-      } else {
-        map.removeLayer(group);
-      }
+      input.checked ? group.addTo(map) : map.removeLayer(group);
     };
   });
 })();
