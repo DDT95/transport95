@@ -1496,13 +1496,12 @@ document.querySelector("#search-form").onsubmit = async (e) => {
 
     const topServed = communes.slice().sort((a, b) => b.stopCount - a.stopCount).slice(0, 6);
     const maxServed = Math.max(...topServed.map((c) => c.stopCount), 1);
-    const leastServed = served.slice().sort((a, b) => a.stopCount - b.stopCount).slice(0, 6);
-    const maxLeast = Math.max(...leastServed.map((c) => c.stopCount), 1);
+    const unservedCommunes = communes.filter((c) => c.stopCount === 0).sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
     const bar = (label, value, max, suffix) =>
       `<div class="bar-row"><span title="${esc(label)}">${esc(label)}</span><div class="bar-track"><i style="--pct:${Math.max(6, (value / max) * 100)}%"></i></div><b>${value} ${suffix}</b></div>`;
     const topRows = topServed.map((c) => bar(c.name, c.stopCount, maxServed, "arrêts")).join("");
-    const leastRows = leastServed.map((c) => bar(c.name, c.stopCount, maxLeast, "arrêts")).join("");
+    const unservedList = unservedCommunes.map((c) => `<span class="project-line-label">${esc(c.name)}</span>`).join(" ");
     const unservedNote = unserved
       ? `<p style="margin-top:10px;color:#a14b24;font-weight:700">${unserved} commune${unserved > 1 ? "s" : ""} du Val-d’Oise sans arrêt recensé dans le référentiel GTFS.</p>`
       : "";
@@ -1560,8 +1559,12 @@ document.querySelector("#search-form").onsubmit = async (e) => {
         </article>
         <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Arrêt ≠ fréquence</h3><p>Chaque arrêt GTFS est rattaché à sa commune par géolocalisation dans les contours IGN. Ce comptage mesure la présence d’un point d’arrêt, pas la fréquence de passage ni l’amplitude horaire : une commune peut avoir un seul arrêt desservi deux fois par jour.</p>${unservedNote}</article>
         <article class="chart-card"><h3>Communes les mieux desservies</h3><p>Nombre d’arrêts recensés sur le territoire communal</p>${topRows}</article>
-        <article class="chart-card"><h3>Communes les moins desservies</h3><p>Parmi celles ayant au moins un arrêt</p>${leastRows}</article>
       </div>
+      ${
+        unservedCommunes.length
+          ? `<article class="chart-card" style="margin-top:12px"><h3>Communes sans arrêt recensé</h3><p>${unservedCommunes.length} commune${unservedCommunes.length > 1 ? "s" : ""} du Val-d’Oise, aucun point d’arrêt GTFS sur leur territoire</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${unservedList}</div></article>`
+          : ""
+      }
 
       <h3 style="margin:26px 2px 12px;color:var(--navy);font-size:16px">Infrastructures, fret et mobilités actives</h3>
       <div class="dashboard-kpis">
