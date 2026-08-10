@@ -1388,62 +1388,112 @@ document.querySelector("#search-form").onsubmit = async (e) => {
   if (!dialog || !content || !openBtn) return;
   const fmt = (n) => n.toLocaleString("fr-FR");
 
+  function inRing(x, y, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function pointInGeometry(lon, lat, geom) {
+    const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    for (const poly of polys) {
+      if (!inRing(lon, lat, poly[0])) continue;
+      let inHole = false;
+      for (let h = 1; h < poly.length; h++) if (inRing(lon, lat, poly[h])) inHole = true;
+      if (!inHole) return true;
+    }
+    return false;
+  }
+
+  let communeStats = null;
+  function computeCommuneStats() {
+    if (communeStats) return communeStats;
+    const C = window.COMMUNES95;
+    const communes = (C?.features || []).map((f) => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const rings = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+      rings.forEach((poly) =>
+        poly[0].forEach(([x, y]) => {
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }),
+      );
+      return { name: f.properties.nom, code: f.properties.code, geometry: f.geometry, bbox: [minX, minY, maxX, maxY], stopCount: 0, hasRail: false };
+    });
+    const railIds = new Set(Object.values(routes).filter((r) => isRailRoute(r.id)).map((r) => r.id));
+    D.stops.forEach((s) => {
+      for (const c of communes) {
+        if (s.lon < c.bbox[0] || s.lon > c.bbox[2] || s.lat < c.bbox[1] || s.lat > c.bbox[3]) continue;
+        if (!pointInGeometry(s.lon, s.lat, c.geometry)) continue;
+        c.stopCount++;
+        if ((s.routes || []).some((rid) => railIds.has(rid))) c.hasRail = true;
+        break;
+      }
+    });
+    communeStats = communes;
+    return communes;
+  }
+
   function renderDashboard() {
     const routeList = Object.values(routes);
     const railRoutes = routeList.filter((r) => isRailRoute(r.id));
     const busRoutes = routeList.filter((r) => !isRailRoute(r.id));
-    const stopCount = Object.keys(stopsById).length;
     const salesCount = LIVE.sales?.points?.length || 0;
-    const hubs = (D.hubs || []).slice().sort((a, b) => (b.n || 0) - (a.n || 0)).slice(0, 6);
-    const maxHub = Math.max(...hubs.map((h) => h.n || 0), 1);
-    const busiestRoutes = routeList
-      .slice()
-      .sort((a, b) => (b.stops?.length || 0) - (a.stops?.length || 0))
-      .slice(0, 6);
-    const maxStops = Math.max(...busiestRoutes.map((r) => r.stops?.length || 0), 1);
-    const total = busRoutes.length + railRoutes.length;
-    const busPct = total ? Math.round((busRoutes.length / total) * 100) : 0;
-    const railPct = 100 - busPct;
+    const chargingCount = SHARED.charging?.length || 0;
+    const carpoolCount = SHARED.carpooling?.length || 0;
 
-    const hubRows = hubs
-      .map(
-        (h) =>
-          `<div class="bar-row"><span title="${esc(h.name)}">${esc(h.name)}</span><div class="bar-track"><i style="--pct:${Math.max(6, ((h.n || 0) / maxHub) * 100)}%"></i></div><b>${h.n || 0} lignes</b></div>`,
-      )
-      .join("");
-    const routeRows = busiestRoutes
-      .map(
-        (r) =>
-          `<div class="bar-row"><span title="${esc(r.short || r.long)}">${esc(r.short || r.long)}</span><div class="bar-track"><i style="--pct:${Math.max(6, ((r.stops?.length || 0) / maxStops) * 100)}%"></i></div><b>${r.stops?.length || 0} arrêts</b></div>`,
-      )
-      .join("");
+    const communes = computeCommuneStats();
+    const total95 = communes.length;
+    const served = communes.filter((c) => c.stopCount > 0);
+    const withRail = communes.filter((c) => c.hasRail);
+    const busOnly = served.length - withRail.length;
+    const unserved = total95 - served.length;
+    const pct = (n) => (total95 ? Math.round((n / total95) * 100) : 0);
+
+    const topServed = communes.slice().sort((a, b) => b.stopCount - a.stopCount).slice(0, 6);
+    const maxServed = Math.max(...topServed.map((c) => c.stopCount), 1);
+    const leastServed = served.slice().sort((a, b) => a.stopCount - b.stopCount).slice(0, 6);
+    const maxLeast = Math.max(...leastServed.map((c) => c.stopCount), 1);
+
+    const bar = (label, value, max, suffix) =>
+      `<div class="bar-row"><span title="${esc(label)}">${esc(label)}</span><div class="bar-track"><i style="--pct:${Math.max(6, (value / max) * 100)}%"></i></div><b>${value} ${suffix}</b></div>`;
+    const topRows = topServed.map((c) => bar(c.name, c.stopCount, maxServed, "arrêts")).join("");
+    const leastRows = leastServed.map((c) => bar(c.name, c.stopCount, maxLeast, "arrêts")).join("");
+    const unservedNote = unserved
+      ? `<p style="margin-top:10px;color:#a14b24;font-weight:700">${unserved} commune${unserved > 1 ? "s" : ""} du Val-d’Oise sans arrêt recensé dans le référentiel GTFS.</p>`
+      : "";
 
     content.innerHTML = `
       <div class="dialog-header">
-        <span class="eyebrow">VAL-D’OISE · RÉSEAU IDFM</span>
-        <h2>Les mobilités en chiffres</h2>
-        <p>Offre théorique du réseau Île-de-France Mobilités dans le Val-d’Oise, millésime GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}.</p>
+        <span class="eyebrow">VAL-D’OISE · LECTURE TERRITORIALE</span>
+        <h2>Qui est desservi, qui ne l’est pas</h2>
+        <p>Desserte communale du réseau Île-de-France Mobilités, millésime GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)} — ${fmt(busRoutes.length)} lignes de bus, ${fmt(railRoutes.length)} lignes RER/trains, ${fmt(D.stops.length)} arrêts rattachés aux ${total95} communes du département.</p>
       </div>
       <div class="dashboard-kpis">
-        <article><small>LIGNES DE BUS</small><strong>${fmt(busRoutes.length)}</strong><span>réseau IDFM théorique</span></article>
-        <article><small>LIGNES RER &amp; TRAINS</small><strong>${fmt(railRoutes.length)}</strong><span>Transilien, RER, tram-train</span></article>
-        <article><small>ARRÊTS ET GARES</small><strong>${fmt(stopCount)}</strong><span>desservis dans le département</span></article>
-        <article><small>POINTS DE VENTE</small><strong>${fmt(salesCount)}</strong><span>tickets et abonnements Navigo</span></article>
+        <article><small>COMMUNES DESSERVIES</small><strong>${served.length}/${total95}</strong><span>au moins un arrêt de bus ou une gare</span></article>
+        <article><small>COMMUNES AVEC GARE OU RER</small><strong>${withRail.length}</strong><span>${pct(withRail.length)} % du département</span></article>
+        <article><small>BORNES DE RECHARGE</small><strong>${fmt(chargingCount)}</strong><span>base nationale IRVE</span></article>
+        <article><small>AIRES DE COVOITURAGE</small><strong>${fmt(carpoolCount)}</strong><span>base nationale BNLC</span></article>
       </div>
       <div class="dashboard-grid">
         <article class="chart-card visual-card">
-          <h3>Répartition des lignes</h3>
+          <h3>Niveau de desserte communal</h3>
           <div class="donut-layout">
-            <div class="donut" style="--segments:#635bff 0% ${busPct}%, #e1000f ${busPct}% 100%"><div><strong>${total}</strong><span>lignes</span></div></div>
+            <div class="donut" style="--segments:#e1000f 0% ${pct(withRail.length)}%, #635bff ${pct(withRail.length)}% ${pct(withRail.length) + pct(busOnly)}%, #cbd5e1 ${pct(withRail.length) + pct(busOnly)}% 100%"><div><strong>${total95}</strong><span>communes</span></div></div>
             <div class="chart-legend">
-              <div><i style="--swatch:#635bff"></i><span>Bus</span><b>${busPct}%</b></div>
-              <div><i style="--swatch:#e1000f"></i><span>RER &amp; trains</span><b>${railPct}%</b></div>
+              <div><i style="--swatch:#e1000f"></i><span>Avec gare ou RER</span><b>${withRail.length}</b></div>
+              <div><i style="--swatch:#635bff"></i><span>Bus uniquement</span><b>${busOnly}</b></div>
+              <div><i style="--swatch:#cbd5e1"></i><span>Sans arrêt recensé</span><b>${unserved}</b></div>
             </div>
           </div>
         </article>
-        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une photographie théorique</h3><p>Ces chiffres décrivent l’offre GTFS théorique publiée par Île-de-France Mobilités (semaine type), pas la circulation en temps réel. Le trafic routier affiché dans l’en-tête, lui, est actualisé en continu via Sytadin.</p></article>
-        <article class="chart-card"><h3>Pôles les mieux connectés</h3><p>Nombre de lignes desservant le pôle d’échange</p>${hubRows}</article>
-        <article class="chart-card span-2"><h3>Lignes desservant le plus d’arrêts</h3><p>Nombre d’arrêts sur le tracé, dans le Val-d’Oise</p>${routeRows}</article>
+        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Arrêt ≠ fréquence</h3><p>Chaque arrêt GTFS est rattaché à sa commune par géolocalisation dans les contours IGN. Ce comptage mesure la présence d’un point d’arrêt, pas la fréquence de passage ni l’amplitude horaire : une commune peut avoir un seul arrêt desservi deux fois par jour.</p>${unservedNote}</article>
+        <article class="chart-card"><h3>Communes les mieux desservies</h3><p>Nombre d’arrêts recensés sur le territoire communal</p>${topRows}</article>
+        <article class="chart-card"><h3>Communes les moins desservies</h3><p>Parmi celles ayant au moins un arrêt</p>${leastRows}</article>
       </div>
     `;
   }
