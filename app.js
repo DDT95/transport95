@@ -1302,29 +1302,37 @@ document.querySelector("#search-form").onsubmit = async (e) => {
   const projectLayers = {};
   PROJECTS.forEach((p) => {
     const group = L.layerGroup();
-    if (p.coords && p.coords.length > 1) {
-      const line = L.polyline(p.coords, {
+    const realGeometry = (p.routeRefs || [])
+      .map((ref) => routes[ref]?.geometry)
+      .filter((g) => g && g.length);
+    const isReal = realGeometry.length > 0;
+    const segments = isReal ? realGeometry : p.coords && p.coords.length > 1 ? [p.coords] : [];
+    segments.forEach((coords) => {
+      const line = L.polyline(coords, {
         color: p.color,
         weight: 4,
         opacity: 0.85,
-        dashArray: p.status === "service" ? null : "2 10",
+        dashArray: isReal ? null : "2 10",
         lineCap: "round",
       });
       line.bindTooltip(
-        `<div class="tooltip-card route"><b>${esc(p.name)}</b><span>${esc(p.statusLabel)} · tracé schématique</span></div>`,
+        `<div class="tooltip-card route"><b>${esc(p.name)}</b><span>${esc(p.statusLabel)} · ${isReal ? "tracé réel (ligne existante)" : "tracé schématique"}</span></div>`,
         { sticky: true, className: "mobility-tooltip", opacity: 1 },
       );
       line.addTo(group);
-      p.coords.forEach((c, i) => {
-        L.circleMarker(c, {
-          radius: 5,
-          weight: 2,
-          color: "#fff",
-          fillColor: p.color,
-          fillOpacity: 1,
-        }).addTo(group);
-      });
-    }
+    });
+    const endpoints = isReal
+      ? segments.flatMap((coords) => [coords[0], coords[coords.length - 1]])
+      : segments[0] || [];
+    endpoints.forEach((c) => {
+      L.circleMarker(c, {
+        radius: 5,
+        weight: 2,
+        color: "#fff",
+        fillColor: p.color,
+        fillOpacity: 1,
+      }).addTo(group);
+    });
     projectLayers[p.id] = group;
     layers["proj_" + p.id] = group;
   });
@@ -1342,7 +1350,13 @@ document.querySelector("#search-form").onsubmit = async (e) => {
   ).join("");
 
   function projectDetailHtml(p) {
-    return `<section class="summary"><h3>Description</h3><p>${esc(p.detail)}</p></section><section class="summary"><h3>Statut et calendrier</h3><p><span class="badge">${esc(p.statusLabel)}</span></p><p>${esc(p.horizon)}</p></section><section class="summary"><h3>Donnée</h3><p>Source : ${esc(p.source)}${p.coords ? "<br>Le tracé affiché sur la carte est schématique (liaison entre points connus), il ne représente pas le tracé technique définitif." : ""}</p></section>`;
+    const isReal = (p.routeRefs || []).some((ref) => routes[ref]?.geometry?.length);
+    const traceNote = isReal
+      ? "Le tracé affiché reprend le tracé réel d’une ou plusieurs lignes régulières existantes (voir description)."
+      : p.coords
+        ? "Le tracé affiché sur la carte est schématique (liaison entre points connus), il ne représente pas le tracé technique définitif."
+        : "";
+    return `<section class="summary"><h3>Description</h3><p>${esc(p.detail)}</p></section><section class="summary"><h3>Statut et calendrier</h3><p><span class="badge">${esc(p.statusLabel)}</span></p><p>${esc(p.horizon)}</p></section><section class="summary"><h3>Donnée</h3><p>Source : ${esc(p.source)}${traceNote ? `<br>${traceNote}` : ""}</p></section>`;
   }
 
   list.querySelectorAll(".project-row input[type=checkbox]").forEach((input) => {
