@@ -1124,8 +1124,6 @@ if (C) {
   document.querySelector("#home").onclick = () =>
     map.fitBounds(b, { padding: [24, 24] });
 }
-document.querySelector("#locate").onclick = () =>
-  map.locate({ setView: true, maxZoom: 15 });
 let selectedPoint;
 async function reverse(p) {
   try {
@@ -1274,7 +1272,6 @@ async function analyze(p) {
   );
 }
 map.on("click", (e) => analyze(e.latlng));
-map.on("locationfound", (e) => analyze(e.latlng));
 document.querySelector("#search-form").onsubmit = async (e) => {
   e.preventDefault();
   const q = document.querySelector("#search-input").value.trim();
