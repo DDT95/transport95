@@ -1292,3 +1292,70 @@ document.querySelector("#search-form").onsubmit = async (e) => {
     analyze(L.latLng(lat, lng));
   }
 };
+
+// ---------- Projets d'infrastructure ----------
+(function () {
+  const PROJECTS = window.PROJECTS95 || [];
+  const list = document.querySelector("#projects-list");
+  if (!list || !PROJECTS.length) return;
+  const STATUS_LABEL = { etudes: "Études", projet: "Projet", travaux: "Travaux", service: "En service" };
+  const projectLayers = {};
+  PROJECTS.forEach((p) => {
+    const group = L.layerGroup();
+    if (p.coords && p.coords.length > 1) {
+      const line = L.polyline(p.coords, {
+        color: p.color,
+        weight: 4,
+        opacity: 0.85,
+        dashArray: p.status === "service" ? null : "2 10",
+        lineCap: "round",
+      });
+      line.bindTooltip(
+        `<div class="tooltip-card route"><b>${esc(p.name)}</b><span>${esc(p.statusLabel)} · tracé schématique</span></div>`,
+        { sticky: true, className: "mobility-tooltip", opacity: 1 },
+      );
+      line.addTo(group);
+      p.coords.forEach((c, i) => {
+        L.circleMarker(c, {
+          radius: 5,
+          weight: 2,
+          color: "#fff",
+          fillColor: p.color,
+          fillOpacity: 1,
+        }).addTo(group);
+      });
+    }
+    projectLayers[p.id] = group;
+    layers["proj_" + p.id] = group;
+  });
+
+  list.innerHTML = PROJECTS.map(
+    (p) => `<label class="project-row" data-project="${p.id}">
+      <i style="--c:${p.color}"></i>
+      <span class="project-text">
+        <b>${esc(p.name)}</b>
+        <small>${esc(p.summary)}</small>
+        <span class="status-pill ${p.status}">${esc(p.statusLabel)}</span>
+      </span>
+      <input type="checkbox" data-layer="proj_${p.id}">
+    </label>`,
+  ).join("");
+
+  function projectDetailHtml(p) {
+    return `<section class="summary"><h3>Description</h3><p>${esc(p.detail)}</p></section><section class="summary"><h3>Statut et calendrier</h3><p><span class="badge">${esc(p.statusLabel)}</span></p><p>${esc(p.horizon)}</p></section><section class="summary"><h3>Donnée</h3><p>Source : ${esc(p.source)}${p.coords ? "<br>Le tracé affiché sur la carte est schématique (liaison entre points connus), il ne représente pas le tracé technique définitif." : ""}</p></section>`;
+  }
+
+  list.querySelectorAll(".project-row input[type=checkbox]").forEach((input) => {
+    input.onchange = () => {
+      const id = input.closest(".project-row").dataset.project;
+      const p = PROJECTS.find((x) => x.id === id);
+      const group = projectLayers[id];
+      if (input.checked) {
+        group.addTo(map);
+        openDetail(p.name, "PROJET D’INFRASTRUCTURE", `${p.statusLabel} · ${p.horizon}`, projectDetailHtml(p));
+      } else {
+        map.removeLayer(group);
+      }
+    };
+  });
+})();
