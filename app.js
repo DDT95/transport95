@@ -1379,3 +1379,81 @@ document.querySelector("#search-form").onsubmit = async (e) => {
     };
   });
 })();
+
+// ---------- Données & évolutions ----------
+(function () {
+  const dialog = document.querySelector("#dashboardDialog");
+  const content = document.querySelector("#dashboardContent");
+  const openBtn = document.querySelector("#openData");
+  if (!dialog || !content || !openBtn) return;
+  const fmt = (n) => n.toLocaleString("fr-FR");
+
+  function renderDashboard() {
+    const routeList = Object.values(routes);
+    const railRoutes = routeList.filter((r) => isRailRoute(r.id));
+    const busRoutes = routeList.filter((r) => !isRailRoute(r.id));
+    const stopCount = Object.keys(stopsById).length;
+    const salesCount = LIVE.sales?.points?.length || 0;
+    const hubs = (D.hubs || []).slice().sort((a, b) => (b.n || 0) - (a.n || 0)).slice(0, 6);
+    const maxHub = Math.max(...hubs.map((h) => h.n || 0), 1);
+    const busiestRoutes = routeList
+      .slice()
+      .sort((a, b) => (b.stops?.length || 0) - (a.stops?.length || 0))
+      .slice(0, 6);
+    const maxStops = Math.max(...busiestRoutes.map((r) => r.stops?.length || 0), 1);
+    const total = busRoutes.length + railRoutes.length;
+    const busPct = total ? Math.round((busRoutes.length / total) * 100) : 0;
+    const railPct = 100 - busPct;
+
+    const hubRows = hubs
+      .map(
+        (h) =>
+          `<div class="bar-row"><span title="${esc(h.name)}">${esc(h.name)}</span><div class="bar-track"><i style="--pct:${Math.max(6, ((h.n || 0) / maxHub) * 100)}%"></i></div><b>${h.n || 0} lignes</b></div>`,
+      )
+      .join("");
+    const routeRows = busiestRoutes
+      .map(
+        (r) =>
+          `<div class="bar-row"><span title="${esc(r.short || r.long)}">${esc(r.short || r.long)}</span><div class="bar-track"><i style="--pct:${Math.max(6, ((r.stops?.length || 0) / maxStops) * 100)}%"></i></div><b>${r.stops?.length || 0} arrêts</b></div>`,
+      )
+      .join("");
+
+    content.innerHTML = `
+      <div class="dialog-header">
+        <span class="eyebrow">VAL-D’OISE · RÉSEAU IDFM</span>
+        <h2>Les mobilités en chiffres</h2>
+        <p>Offre théorique du réseau Île-de-France Mobilités dans le Val-d’Oise, millésime GTFS du ${D.date.slice(6, 8)}/${D.date.slice(4, 6)}/${D.date.slice(0, 4)}.</p>
+      </div>
+      <div class="dashboard-kpis">
+        <article><small>LIGNES DE BUS</small><strong>${fmt(busRoutes.length)}</strong><span>réseau IDFM théorique</span></article>
+        <article><small>LIGNES RER &amp; TRAINS</small><strong>${fmt(railRoutes.length)}</strong><span>Transilien, RER, tram-train</span></article>
+        <article><small>ARRÊTS ET GARES</small><strong>${fmt(stopCount)}</strong><span>desservis dans le département</span></article>
+        <article><small>POINTS DE VENTE</small><strong>${fmt(salesCount)}</strong><span>tickets et abonnements Navigo</span></article>
+      </div>
+      <div class="dashboard-grid">
+        <article class="chart-card visual-card">
+          <h3>Répartition des lignes</h3>
+          <div class="donut-layout">
+            <div class="donut" style="--segments:#635bff 0% ${busPct}%, #e1000f ${busPct}% 100%"><div><strong>${total}</strong><span>lignes</span></div></div>
+            <div class="chart-legend">
+              <div><i style="--swatch:#635bff"></i><span>Bus</span><b>${busPct}%</b></div>
+              <div><i style="--swatch:#e1000f"></i><span>RER &amp; trains</span><b>${railPct}%</b></div>
+            </div>
+          </div>
+        </article>
+        <article class="dashboard-note"><span>COMMENT LIRE</span><h3>Une photographie théorique</h3><p>Ces chiffres décrivent l’offre GTFS théorique publiée par Île-de-France Mobilités (semaine type), pas la circulation en temps réel. Le trafic routier affiché dans l’en-tête, lui, est actualisé en continu via Sytadin.</p></article>
+        <article class="chart-card"><h3>Pôles les mieux connectés</h3><p>Nombre de lignes desservant le pôle d’échange</p>${hubRows}</article>
+        <article class="chart-card span-2"><h3>Lignes desservant le plus d’arrêts</h3><p>Nombre d’arrêts sur le tracé, dans le Val-d’Oise</p>${routeRows}</article>
+      </div>
+    `;
+  }
+
+  openBtn.addEventListener("click", () => {
+    renderDashboard();
+    dialog.showModal();
+  });
+  document.querySelector("#closeDashboard").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+})();

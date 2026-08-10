@@ -69,6 +69,7 @@
             </div>
             <div class="actions">
               <button class="primary" id="home">Recentrer</button>
+              <button id="openData">Données & évolutions</button>
             </div>
           </div>
           <div class="scroll">
@@ -211,6 +212,10 @@
       </div>
       <div class="drawer-body" id="detail-body"></div>
     </aside>
+    <dialog id="dashboardDialog" class="dialog dashboard-dialog">
+      <button class="dialog-close" id="closeDashboard" aria-label="Fermer">×</button>
+      <div id="dashboardContent"></div>
+    </dialog>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./mobility95.js"></script>
     <script src="./roads95.js"></script>
