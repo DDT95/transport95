@@ -1063,13 +1063,6 @@ document.querySelectorAll("[data-layer]").forEach(
         : map.removeLayer(layers[i.dataset.layer]);
     }),
 );
-const transportMode={network:"bus",data:"theoretical"};
-const transportLayerKeys=["stations","stops","busRoutes","railRoutes"];
-function setTransportLayer(key,enabled){const toggle=document.querySelector(`[data-layer="${key}"]`);if(toggle)toggle.checked=enabled;if(enabled){if(key==="stops")refreshBusStops();if(!map.hasLayer(layers[key]))layers[key].addTo(map)}else if(map.hasLayer(layers[key]))map.removeLayer(layers[key])}
-function applyTransportMode(){const isTrain=transportMode.network==="train",isLive=isTrain&&transportMode.data==="realtime";document.querySelectorAll("[data-network]").forEach(button=>{const active=button.dataset.network===transportMode.network;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))});const realtimeButton=document.querySelector('[data-data-mode="realtime"]');realtimeButton.disabled=!isTrain;document.querySelectorAll("[data-data-mode]").forEach(button=>{const active=button.dataset.dataMode===transportMode.data;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active))});document.querySelector("#network-availability").textContent=isLive?"Temps réel IDFM":"Horaires théoriques";document.querySelector("#local-map-view").hidden=isLive;document.querySelector("#live-rail-view").hidden=!isLive;if(isLive){const frame=document.querySelector("#live-rail-frame");if(!frame.src)frame.src=frame.dataset.src}else{transportLayerKeys.forEach(key=>setTransportLayer(key,false));setTransportLayer(isTrain?"stations":"stops",true);setTransportLayer(isTrain?"railRoutes":"busRoutes",true);setTimeout(()=>map.invalidateSize(),0)}}
-document.querySelectorAll("[data-network]").forEach(button=>button.addEventListener("click",()=>{transportMode.network=button.dataset.network;if(transportMode.network==="bus")transportMode.data="theoretical";applyTransportMode()}));
-document.querySelectorAll("[data-data-mode]").forEach(button=>button.addEventListener("click",()=>{if(button.disabled)return;transportMode.data=button.dataset.dataMode;applyTransportMode()}));
-applyTransportMode();
 document.querySelector("#progress").style.width = "100%";
 document.querySelector("#live-dot").classList.add("ok");
 if (LIVE.traffic?.updated) {

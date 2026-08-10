@@ -49,19 +49,6 @@
             <p class="tool-intro">
               Recherche un lieu, une gare ou une ligne pour analyser sa desserte.
             </p>
-            <section class="network-explorer" aria-labelledby="network-explorer-title">
-              <div class="network-explorer-heading"><div><span class="network-step">1</span><b id="network-explorer-title">Choisir un réseau</b></div><span id="network-availability" class="availability-badge">Horaires théoriques</span></div>
-              <div class="segmented-control" role="group" aria-label="Mode de transport">
-                <button class="network-choice active" type="button" data-network="bus" aria-pressed="true"><img src="icons/bus-front.svg" alt="" />Bus</button>
-                <button class="network-choice" type="button" data-network="train" aria-pressed="false"><img src="icons/train-front.svg" alt="" />Train · RER</button>
-              </div>
-              <div class="network-explorer-heading data-heading"><div><span class="network-step">2</span><b>Choisir la donnée</b></div></div>
-              <div class="segmented-control data-control" role="group" aria-label="Type de données">
-                <button class="data-choice active" type="button" data-data-mode="theoretical" aria-pressed="true">Théorique <small>semaine type</small></button>
-                <button class="data-choice" type="button" data-data-mode="realtime" aria-pressed="false" disabled aria-describedby="realtime-help">Temps réel <small>train uniquement</small></button>
-              </div>
-              <p id="realtime-help" class="mode-help">Le temps réel est disponible pour le réseau ferré. Pour les bus, l’atlas restitue l’offre GTFS théorique.</p>
-            </section>
             <form id="search-form" class="search">
               <span>⌕</span
               ><input
@@ -193,16 +180,12 @@
           </div>
         </aside>
         <section class="map-zone" style="display: block">
-          <div class="map-card local-map-view" id="local-map-view" style="height: 100%">
+          <div class="map-card" style="height: 100%">
             <div id="map"></div>
             <div class="map-help">
               <b>Clique sur la carte</b
               ><span>pour analyser la desserte d’un lieu</span>
             </div>
-          </div>
-          <div class="live-rail-view" id="live-rail-view" hidden>
-            <div class="live-rail-banner"><div><span class="live-pulse"></span><b>Réseau ferré en direct</b><small>Positions diffusées par Île-de-France Mobilités</small></div><a href="https://piece-jointe-carto.developpement-durable.gouv.fr/DEPT095A/CARTOGRAPHIE/CARTE_STATIQUE/2026/26_07_4873/idf_TR/index_idf_tr_mobile.html" target="_blank" rel="noreferrer">Plein écran ↗</a></div>
-            <iframe id="live-rail-frame" title="Réseau ferré d’Île-de-France en temps réel" loading="lazy" referrerpolicy="no-referrer" data-src="https://piece-jointe-carto.developpement-durable.gouv.fr/DEPT095A/CARTOGRAPHIE/CARTE_STATIQUE/2026/26_07_4873/idf_TR/index_idf_tr_mobile.html"></iframe>
           </div>
         </section>
       </main>
