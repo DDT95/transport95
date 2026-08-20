@@ -383,6 +383,32 @@
 .layer-symbol.carpool {
   background: #0078a8;
 }
+.layer-symbol.radar {
+  color: #fff;
+  background: #e1000f;
+  border-radius: 7px;
+  font-weight: 800;
+}
+.radar-marker {
+  border: 0;
+  background: none;
+}
+.radar-marker span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #fff;
+  border-radius: 9px;
+  background: #e1000f;
+  color: #fff;
+  box-shadow: 0 4px 13px #0005;
+  font-size: 12px;
+  font-weight: 800;
+}
+.radar-marker:hover span {
+  transform: scale(1.12);
+}
 .shared-marker {
   background: transparent;
   border: 0;

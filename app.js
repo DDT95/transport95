@@ -12,6 +12,8 @@ map.createPane("freightPane");
 map.getPane("freightPane").style.zIndex = 365;
 map.createPane("sharedPane");
 map.getPane("sharedPane").style.zIndex = 370;
+map.createPane("radarsPane");
+map.getPane("radarsPane").style.zIndex = 390;
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -59,6 +61,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     multimodal: { type: "FeatureCollection", features: [] },
   },
   SHARED = window.SHARED_MOBILITY95 || { charging: [], carpooling: [] },
+  RADARS = window.RADARS95 || { items: [] },
   routes = D.routes,
   stopsById = Object.fromEntries(D.stops.map((s) => [s.id, s])),
   layers = {
@@ -122,6 +125,7 @@ const D = window.MOBILITY95 || { stops: [], hubs: [], routes: {} },
     sales: L.layerGroup(),
     charging: createSharedLayer(SHARED.charging, "charging"),
     carpooling: createSharedLayer(SHARED.carpooling, "carpooling"),
+    radars: createRadarLayer(RADARS.items),
     traffic: L.geoJSON(
       LIVE.traffic?.features || { type: "FeatureCollection", features: [] },
       {
@@ -394,6 +398,51 @@ function createSharedLayer(items, type) {
       L.DomEvent.stopPropagation(event);
       if (charging) openChargingDetail(item);
       else openCarpoolDetail(item);
+    });
+    marker.addTo(group);
+  });
+  return group;
+}
+function radarTypeLabel(code) {
+  return {
+    ETF: "Radar vitesse fixe",
+    ETD: "Radar discriminant",
+    ETT: "Radar tourelle",
+    ETU: "Radar urbain",
+    ETVM: "Radar vitesse moyenne",
+    ETFR: "Radar feu rouge",
+    ETPN: "Radar passage à niveau",
+  }[code] || code || "Radar fixe";
+}
+function radarIcon() {
+  return L.divIcon({
+    className: "radar-marker",
+    html: "<span>R</span>",
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+function createRadarLayer(items) {
+  const group = L.layerGroup();
+  items.forEach((item) => {
+    const label = radarTypeLabel(item.type);
+    const marker = L.marker([item.lat, item.lon], {
+      pane: "radarsPane",
+      icon: radarIcon(),
+      bubblingMouseEvents: false,
+    });
+    marker.bindTooltip(
+      `<div class="tooltip-card"><b>${safeText(label)}</b><span><i>Radar fixe</i>${safeText(item.speed ? `${item.speed} km/h` : "Vitesse non renseignée")}</span></div>`,
+      { sticky: true, className: "mobility-tooltip", opacity: 1 },
+    );
+    marker.on("click", (event) => {
+      L.DomEvent.stopPropagation(event);
+      openDetail(
+        label,
+        "SÉCURITÉ ROUTIÈRE · RADAR FIXE",
+        item.speed ? `Vitesse maximale autorisée : ${item.speed} km/h` : "Vitesse non renseignée",
+        `<section class="summary"><h3>Équipement</h3><p>Type : <b>${esc(label)}</b><br>Code : ${esc(item.type)}<br>Vitesse maximale autorisée : <b>${esc(item.speed ? `${item.speed} km/h` : "non renseignée")}</b><br>Mise en service : ${esc(item.commissioned || "non renseignée")}</p></section><section class="summary"><h3>Localisation et source</h3><p>Coordonnées : ${item.lat.toFixed(6)}, ${item.lon.toFixed(6)}<br>Identifiant national : ${esc(item.id)}<br>Source : Ministère de l’Intérieur · data.gouv.fr<br>Jeu mis à jour le 30/12/2025.</p><a href="${esc(RADARS.source_url)}" target="_blank" rel="noopener">Consulter la source officielle ↗</a></section>`,
+      );
     });
     marker.addTo(group);
   });
