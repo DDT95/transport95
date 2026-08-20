@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev": "vite",
-    "build": "python3 scripts/build_live_data.py && python3 scripts/build_radars_data.py && vite build && cp app.js pdf-export.js prefet-logo-data.js mobility95.js roads95.js radars95.js cycle95.js live95.js freight95.js shared-mobility95.js projects95.js dist/ && cp -R icons vendor dist/",
+    "build": "python3 scripts/build_live_data.py && vite build && cp app.js pdf-export.js prefet-logo-data.js mobility95.js roads95.js radars95.js cycle95.js live95.js freight95.js shared-mobility95.js projects95.js dist/ && cp -R icons vendor dist/",
     "preview": "vite preview"
   },
   "dependencies": {
