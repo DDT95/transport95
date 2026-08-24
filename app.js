@@ -1,7 +1,7 @@
-const VAL_DOISE_BOUNDS = [[48.88, 1.60], [49.25, 2.62]];
+const VAL_DOISE_BOUNDS = [[48.89, 1.60], [49.25, 2.60]];
 const map = L.map("map", {
   zoomControl: false,
-}).fitBounds(VAL_DOISE_BOUNDS, { padding: [24, 24] });
+}).fitBounds(VAL_DOISE_BOUNDS, { padding: [8, 8] });
 map.createPane("roadsPane");
 map.getPane("roadsPane").style.zIndex = 330;
 map.createPane("cyclePane");
@@ -1177,9 +1177,9 @@ if (C) {
   })
     .addTo(map)
     .getBounds();
-  if (b.isValid()) map.fitBounds(b, { padding: [24, 24], animate: false });
+  if (b.isValid()) map.fitBounds(b, { padding: [10, 10], animate: false });
   document.querySelector("#home").onclick = () =>
-    map.fitBounds(b, { padding: [24, 24] });
+    map.fitBounds(b, { padding: [10, 10] });
 }
 let selectedPoint;
 async function reverse(p) {
